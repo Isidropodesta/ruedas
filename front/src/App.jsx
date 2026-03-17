@@ -38,8 +38,13 @@ function AppRoutes() {
       <Route path="/public/vehicles/:id" element={<PublicVehicle />} />
       <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
 
-      {/* App routes with sidebar Layout — all require auth */}
-      <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+      {/* Routes with sidebar Layout */}
+      <Route element={<Layout />}>
+        {/* Public — no login required */}
+        <Route path="/vehicles" element={<Vehicles />} />
+        <Route path="/vehicles/:id" element={<VehicleDetail />} />
+        <Route path="/compare" element={<Compare />} />
+
         {/* Vendedor + Dueño only */}
         <Route path="/" element={<PrivateRoute roles={['vendedor', 'dueno']}><Dashboard /></PrivateRoute>} />
         <Route path="/vehicles/new" element={<PrivateRoute roles={['vendedor', 'dueno']}><AddVehicle /></PrivateRoute>} />
@@ -47,16 +52,13 @@ function AppRoutes() {
         <Route path="/sellers/new" element={<PrivateRoute roles={['vendedor', 'dueno']}><AddSeller /></PrivateRoute>} />
         <Route path="/sellers/:id" element={<PrivateRoute roles={['vendedor', 'dueno']}><SellerDetail /></PrivateRoute>} />
         <Route path="/test-drives" element={<PrivateRoute roles={['vendedor', 'dueno']}><TestDrives /></PrivateRoute>} />
+
         {/* Dueño only */}
         <Route path="/users" element={<PrivateRoute roles={['dueno']}><Users /></PrivateRoute>} />
-        {/* All authenticated */}
-        <Route path="/vehicles" element={<Vehicles />} />
-        <Route path="/vehicles/:id" element={<VehicleDetail />} />
-        <Route path="/compare" element={<Compare />} />
       </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/vehicles" replace />} />
     </Routes>
   )
 }

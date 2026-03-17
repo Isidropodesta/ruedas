@@ -62,8 +62,11 @@ app.get('/api/public/vehicles/:id', async (req, res) => {
 });
 
 // Protected routes — auth required for all
-// Vehicles: any authenticated can read; vendedor/dueno can write (enforced inside router)
-app.use('/api/vehicles', auth, vehiclesRouter);
+// Vehicles: GET is public; write operations enforce role inside router
+app.use('/api/vehicles', (req, res, next) => {
+  if (req.method === 'GET') return next();
+  auth(req, res, next);
+}, vehiclesRouter);
 
 // Sellers, KPIs: vendedor+ only
 app.use('/api/sellers', auth, requireRole('vendedor', 'dueno'), sellersRouter);

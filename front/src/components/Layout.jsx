@@ -129,7 +129,7 @@ export default function Layout() {
   const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const navItems = navByRole[user?.role] || navByRole.cliente
+  const navItems = user ? (navByRole[user.role] || navByRole.cliente) : navByRole.cliente
 
   const getTitle = () => {
     const path = location.pathname
@@ -180,6 +180,18 @@ export default function Layout() {
           ))}
         </nav>
 
+        {!user && (
+          <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
+            <NavLink
+              to="/login"
+              className="btn btn-primary"
+              onClick={closeSidebar}
+              style={{ display: 'block', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}
+            >
+              Iniciar sesión
+            </NavLink>
+          </div>
+        )}
         {user && (
           <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -228,7 +240,7 @@ export default function Layout() {
           <div className="topbar-right">
             <div className="topbar-badge">
               <span className="topbar-dot" />
-              {user ? `${user.name.split(' ')[0]} · ${ROLE_LABELS[user.role]}` : 'Conectado'}
+              {user ? `${user.name.split(' ')[0]} · ${ROLE_LABELS[user.role]}` : 'Visitante'}
             </div>
           </div>
         </header>
