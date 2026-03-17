@@ -1,8 +1,0 @@
-{
-  "buildCommand": "cd front && npm install && npm run build",
-  "outputDirectory": "front/dist",
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ]
-}
