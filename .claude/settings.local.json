@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node:*)",
+      "Bash(cd:*)",
+      "Bash(curl:*)",
+      "Bash(psql:*)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Program Files//**)",
+      "Bash(cmd.exe /c \"where psql\" 2>&1)",
+      "Bash(cmd.exe /c \"dir /b /s \\\\\"C:\\\\Program Files\\\\PostgreSQL\\\\psql.exe\\\\\" 2>nul\")",
+      "Bash(cmd.exe /c \"dir /b /s \\\\\"C:\\\\Program Files\\\\psql.exe\\\\\" 2>nul & dir /b /s \\\\\"C:\\\\Program Files \\(x86\\)\\\\psql.exe\\\\\" 2>nul & dir /b /s \\\\\"C:\\\\Users\\\\isidr\\\\psql.exe\\\\\" 2>nul\")",
+      "Bash(cmd.exe /c \"dir /b /s C:\\\\psql.exe 2>nul\")",
+      "Bash(cmd.exe /c \"reg query HKLM\\\\SOFTWARE\\\\PostgreSQL /s 2>nul | findstr Location\")",
+      "Bash(cmd.exe /c \"reg query HKLM\\\\SOFTWARE\\\\PostgreSQL 2>nul\" && cmd.exe /c \"reg query HKLM\\\\SOFTWARE\\\\WOW6432Node\\\\PostgreSQL 2>nul\")",
+      "Bash(cmd.exe /c \"winget install PostgreSQL.PostgreSQL --accept-source-agreements --accept-package-agreements 2>&1\")",
+      "Bash(cmd.exe /c \"winget search PostgreSQL 2>&1\")",
+      "Bash(cmd.exe /c \"winget search PostgreSQL > C:\\\\Users\\\\isidr\\\\Desktop\\\\out.txt 2>&1\")",
+      "Read(//c/Users/isidr/Desktop/**)",
+      "Bash(powershell.exe -Command \"winget search PostgreSQL\" 2>&1)",
+      "Bash(powershell.exe -Command \"Invoke-WebRequest -Uri 'https://get.enterprisedb.com/postgresql/postgresql-17-windows-x64.exe' -OutFile 'C:\\\\Users\\\\isidr\\\\Downloads\\\\pg17.exe' -UseBasicParsing; Write-Host 'Descarga completa'\")",
+      "Bash(powershell.exe -Command \"Invoke-WebRequest -Uri 'https://sbp.enterprisedb.com/getfile.jsp?fileid=1258893' -OutFile 'C:\\\\Users\\\\isidr\\\\Downloads\\\\pg17.exe' -UseBasicParsing; Write-Host 'OK'\")",
+      "Bash(powershell.exe -Command \"choco --version\" 2>&1 || powershell.exe -Command \"scoop --version\" 2>&1)",
+      "Bash(powershell.exe -Command \"choco install postgresql17 --params '/Password:postgres' -y\" 2>&1)",
+      "Bash(powershell.exe -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1; Write-Host 'Procesos node detenidos'\")",
+      "Bash(git:*)"
+    ]
+  }
+}
