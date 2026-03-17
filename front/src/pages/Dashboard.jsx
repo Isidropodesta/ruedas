@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
+  BarChart, Bar,
 } from 'recharts'
 import { getGeneralKpis, getMonthlyKpis, getSellerKpis, getVehicles } from '../api'
 import KpiCard from '../components/KpiCard'
@@ -198,6 +199,119 @@ function Sparkline({ color = '#4ae8d0', height = 24, width = 60 }) {
         opacity="0.7"
       />
     </svg>
+  )
+}
+
+// Seller comparison bar chart
+const SELLER_METRICS = [
+  { key: 'total_revenue', label: 'Facturación', color: '#4ae8d0', format: formatCurrency },
+  { key: 'vehicles_sold', label: 'Unidades', color: '#a87ff5', format: v => v },
+  { key: 'avg_ticket', label: 'Ticket Prom.', color: '#e8c840', format: formatCurrency },
+]
+
+const SellerBarTooltip = ({ active, payload, label, metric }) => {
+  if (!active || !payload?.length) return null
+  const m = SELLER_METRICS.find(m => m.key === metric) || SELLER_METRICS[0]
+  return (
+    <div className="chart-tooltip">
+      <div className="chart-tooltip-title">{label}</div>
+      <div className="chart-tooltip-row">
+        <span className="chart-tooltip-dot" style={{ background: m.color }} />
+        <span>{m.label}: </span>
+        <strong>{m.format(payload[0].value)}</strong>
+      </div>
+    </div>
+  )
+}
+
+function SellerComparisonChart({ sellers }) {
+  const [metric, setMetric] = useState('total_revenue')
+  const m = SELLER_METRICS.find(m => m.key === metric)
+
+  const data = sellers
+    .filter(s => parseFloat(s[metric]) > 0)
+    .sort((a, b) => parseFloat(b[metric]) - parseFloat(a[metric]))
+    .slice(0, 8)
+    .map(s => ({
+      name: s.name.split(' ')[0],
+      fullName: s.name,
+      value: parseFloat(s[metric]) || 0,
+    }))
+
+  if (data.length === 0) return (
+    <div className="empty-state" style={{ padding: '40px 0' }}>
+      <p>Sin datos comparativos.</p>
+    </div>
+  )
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {SELLER_METRICS.map(met => (
+          <button
+            key={met.key}
+            onClick={() => setMetric(met.key)}
+            style={{
+              padding: '5px 14px',
+              borderRadius: 20,
+              border: `1.5px solid ${metric === met.key ? met.color : 'rgba(255,255,255,0.1)'}`,
+              background: metric === met.key ? `${met.color}18` : 'transparent',
+              color: metric === met.key ? met.color : 'var(--text-soft)',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            {met.label}
+          </button>
+        ))}
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={data} margin={{ top: 4, right: 16, left: -10, bottom: 0 }} barCategoryGap="30%">
+          <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.03)" vertical={false} />
+          <XAxis
+            dataKey="name"
+            stroke="transparent"
+            tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            stroke="transparent"
+            tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+            width={38}
+            tickFormatter={v => metric === 'vehicles_sold' ? v : (v >= 1000 ? `${(v/1000).toFixed(0)}K` : v)}
+          />
+          <Tooltip content={<SellerBarTooltip metric={metric} />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Bar dataKey="value" fill={m.color} radius={[4, 4, 0, 0]} maxBarSize={48}>
+            {data.map((entry, i) => (
+              <Cell
+                key={i}
+                fill={i === 0 ? m.color : `${m.color}90`}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      {/* Mini table below chart */}
+      <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {data.map((d, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '4px 10px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.07)',
+          }}>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{i + 1}.</span>
+            <span style={{ fontSize: 12, color: 'var(--text-soft)', fontWeight: 500 }}>{d.fullName.split(' ')[0]}</span>
+            <span style={{ fontSize: 12, color: m.color, fontWeight: 700 }}>{m.format(d.value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -456,6 +570,21 @@ export default function Dashboard() {
               </ResponsiveContainer>
               <WireframeMesh />
             </div>
+          )}
+        </div>
+
+        {/* ── Seller Comparison Chart ───────────────────────── */}
+        <div className="chart-wrapper" style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 4 }}>
+            <div className="chart-title">Comparativo de Vendedores</div>
+            <div className="chart-subtitle">Rendimiento individual — seleccioná la métrica</div>
+          </div>
+          {sellers.length === 0 ? (
+            <div className="empty-state" style={{ padding: '40px 0' }}>
+              <p>No hay vendedores registrados.</p>
+            </div>
+          ) : (
+            <SellerComparisonChart sellers={sellers} />
           )}
         </div>
 
