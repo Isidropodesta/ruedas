@@ -87,9 +87,13 @@ export default function Sellers() {
                   >
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div className="seller-avatar" style={{ width: 38, height: 38, fontSize: 14 }}>
-                          {getInitials(s.name)}
-                        </div>
+                        {s.photo_url ? (
+                          <img src={s.photo_url} alt={s.name} style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
+                        ) : (
+                          <div className="seller-avatar" style={{ width: 38, height: 38, fontSize: 14 }}>
+                            {getInitials(s.name)}
+                          </div>
+                        )}
                         <div>
                           <div style={{ fontWeight: 700 }}>{s.name}</div>
                           {s.hire_date && (

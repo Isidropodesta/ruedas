@@ -60,9 +60,13 @@ export default function SellerDetail() {
       {/* Header */}
       <div className="form-section" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div className="seller-avatar" style={{ width: 72, height: 72, fontSize: 28, borderRadius: 16 }}>
-            {getInitials(seller.name)}
-          </div>
+          {seller.photo_url ? (
+            <img src={seller.photo_url} alt={seller.name} style={{ width: 72, height: 72, borderRadius: 16, objectFit: 'cover', border: '2px solid rgba(255,255,255,0.12)' }} />
+          ) : (
+            <div className="seller-avatar" style={{ width: 72, height: 72, fontSize: 28, borderRadius: 16 }}>
+              {getInitials(seller.name)}
+            </div>
+          )}
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <h2 style={{ fontSize: 24, fontWeight: 800 }}>{seller.name}</h2>
