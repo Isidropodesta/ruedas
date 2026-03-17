@@ -23,7 +23,9 @@
       "Bash(powershell.exe -Command \"choco --version\" 2>&1 || powershell.exe -Command \"scoop --version\" 2>&1)",
       "Bash(powershell.exe -Command \"choco install postgresql17 --params '/Password:postgres' -y\" 2>&1)",
       "Bash(powershell.exe -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1; Write-Host 'Procesos node detenidos'\")",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Read(//c/Users/isidr/OneDrive/Desktop/imagen/**)",
+      "Read(//c/Users/isidr/OneDrive/Desktop//**)"
     ]
   }
 }
