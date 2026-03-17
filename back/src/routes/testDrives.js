@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { requireRole } = require('../middleware/auth');
 
 // GET /api/test-drives - list all upcoming/pending test drives sorted by scheduled_at
 router.get('/', async (req, res) => {
@@ -44,7 +45,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /api/test-drives/:id - update status/notes
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status, notes } = req.body;
@@ -87,7 +88,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/test-drives/:id - cancel/delete
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(

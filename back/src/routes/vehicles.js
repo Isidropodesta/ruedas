@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const pool = require('../db');
+const { requireRole } = require('../middleware/auth');
 
 const multer = require('multer');
 const upload = multer({ dest: path.join(__dirname, '../../uploads') });
@@ -89,7 +90,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/vehicles - create vehicle with photo upload
-router.post('/', upload.array('photos'), async (req, res) => {
+router.post('/', requireRole('vendedor', 'dueno'), upload.array('photos'), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -161,7 +162,7 @@ router.post('/', upload.array('photos'), async (req, res) => {
 });
 
 // PUT /api/vehicles/:id - update vehicle data
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -215,7 +216,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // PUT /api/vehicles/:id/status - change status
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const { status, seller_id, sale_price, withdrawal_reason } = req.body;
@@ -279,7 +280,7 @@ router.get('/:id/report', async (req, res) => {
 });
 
 // PUT /api/vehicles/:id/report - save/update component report
-router.put('/:id/report', async (req, res) => {
+router.put('/:id/report', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const report = req.body;
@@ -341,7 +342,7 @@ router.post('/:id/test-drives', async (req, res) => {
 });
 
 // DELETE /api/vehicles/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireRole('dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query('DELETE FROM vehicles WHERE id = $1 RETURNING id', [id]);

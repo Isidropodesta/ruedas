@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const DashboardIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -77,13 +78,39 @@ const CloseIcon = () => (
   </svg>
 )
 
-const navItems = [
-  { to: '/', label: 'Dashboard', Icon: DashboardIcon, exact: true },
-  { to: '/vehicles', label: 'Vehículos', Icon: CarIcon },
-  { to: '/sellers', label: 'Vendedores', Icon: PersonIcon },
-  { to: '/test-drives', label: 'Turnos', Icon: CalendarIcon },
-  { to: '/compare', label: 'Comparar', Icon: CompareIcon },
-]
+const UsersIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <circle cx="6.5" cy="6" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M1.5 14.5C1.5 11.9 3.7 9.8 6.5 9.8C9.3 9.8 11.5 11.9 11.5 14.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <circle cx="13" cy="5.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.3"/>
+    <path d="M15 13.5C15 11.6 14 10.1 12.5 9.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+  </svg>
+)
+
+const ROLE_LABELS = { cliente: 'Cliente', vendedor: 'Vendedor', dueno: 'Dueño' }
+
+// Nav items per role
+const navByRole = {
+  dueno: [
+    { to: '/', label: 'Dashboard', Icon: DashboardIcon, exact: true },
+    { to: '/vehicles', label: 'Vehículos', Icon: CarIcon },
+    { to: '/sellers', label: 'Vendedores', Icon: PersonIcon },
+    { to: '/test-drives', label: 'Turnos', Icon: CalendarIcon },
+    { to: '/compare', label: 'Comparar', Icon: CompareIcon },
+    { to: '/users', label: 'Usuarios', Icon: UsersIcon },
+  ],
+  vendedor: [
+    { to: '/', label: 'Dashboard', Icon: DashboardIcon, exact: true },
+    { to: '/vehicles', label: 'Vehículos', Icon: CarIcon },
+    { to: '/sellers', label: 'Vendedores', Icon: PersonIcon },
+    { to: '/test-drives', label: 'Turnos', Icon: CalendarIcon },
+    { to: '/compare', label: 'Comparar', Icon: CompareIcon },
+  ],
+  cliente: [
+    { to: '/vehicles', label: 'Catálogo', Icon: CarIcon },
+    { to: '/compare', label: 'Comparar', Icon: CompareIcon },
+  ],
+}
 
 const pageTitles = {
   '/': 'Dashboard',
@@ -93,18 +120,29 @@ const pageTitles = {
   '/sellers/new': 'Agregar Vendedor',
   '/test-drives': 'Turnos & Test Drives',
   '/compare': 'Comparador de Vehículos',
+  '/users': 'Gestión de Usuarios',
 }
 
 export default function Layout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const navItems = navByRole[user?.role] || navByRole.cliente
 
   const getTitle = () => {
     const path = location.pathname
     if (pageTitles[path]) return pageTitles[path]
     if (path.startsWith('/vehicles/')) return 'Detalle del Vehículo'
     if (path.startsWith('/sellers/')) return 'Perfil del Vendedor'
+    if (path === '/users') return 'Usuarios'
     return 'Ruedas'
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
   }
 
   const closeSidebar = () => setSidebarOpen(false)
@@ -142,7 +180,41 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="sidebar-footer">Sistema Interno v1.0</div>
+        {user && (
+          <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                background: user.role === 'dueno' ? 'rgba(232,200,64,0.15)' : user.role === 'vendedor' ? 'rgba(168,127,245,0.15)' : 'rgba(74,232,208,0.15)',
+                color: user.role === 'dueno' ? '#e8c840' : user.role === 'vendedor' ? '#a87ff5' : '#4ae8d0',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 800,
+              }}>
+                {user.name.split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase()}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user.name}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {ROLE_LABELS[user.role]}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              style={{
+                width: '100%', padding: '7px 0', borderRadius: 8, border: '1px solid var(--border)',
+                background: 'transparent', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer',
+                fontWeight: 500, transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--danger)'; e.currentTarget.style.color = 'var(--danger)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        )}
       </aside>
 
       <div className="main-content">
@@ -156,7 +228,7 @@ export default function Layout() {
           <div className="topbar-right">
             <div className="topbar-badge">
               <span className="topbar-dot" />
-              Conectado
+              {user ? `${user.name.split(' ')[0]} · ${ROLE_LABELS[user.role]}` : 'Conectado'}
             </div>
           </div>
         </header>

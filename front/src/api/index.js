@@ -1,9 +1,17 @@
 const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, options);
+  const token = localStorage.getItem('token');
+  const headers = { ...options.headers };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
   const data = await res.json();
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
     throw new Error(data.error || `Request failed: ${res.status}`);
   }
   return data;
@@ -142,4 +150,46 @@ export function getSellerKpis() {
 
 export function getMonthlyKpis() {
   return request('/kpis/monthly');
+}
+
+// Auth
+export function login(email, password) {
+  return request('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function register(name, email, password) {
+  return request('/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+}
+
+// Users (dueño only)
+export function getUsers() {
+  return request('/users');
+}
+
+export function createUser(data) {
+  return request('/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateUser(id, data) {
+  return request(`/users/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteUser(id) {
+  return request(`/users/${id}`, { method: 'DELETE' });
 }
