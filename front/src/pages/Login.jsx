@@ -50,6 +50,12 @@ export default function Login() {
     }
   }
 
+  const DEMO_USERS = [
+    { role: 'Dueño',    email: 'admin@ruedas.com',   password: 'admin123',    color: '#e8c840', desc: 'Acceso total + gestión de usuarios' },
+    { role: 'Vendedor', email: 'carlos@ruedas.com',  password: 'vendedor123', color: '#a87ff5', desc: 'Dashboard, vehículos y turnos' },
+    { role: 'Cliente',  email: 'juan@email.com',     password: 'cliente123',  color: '#4ae8d0', desc: 'Catálogo y comparador' },
+  ]
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -160,6 +166,53 @@ export default function Login() {
               Las cuentas nuevas se crean como <strong style={{ color: 'var(--text-soft)' }}>Cliente</strong>. El dueño puede cambiar tu rol.
             </p>
           )}
+        </div>
+
+        {/* Demo users */}
+        <div style={{
+          marginTop: 20,
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 12,
+          padding: '14px 16px',
+        }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, textAlign: 'center' }}>
+            👆 Usuarios de prueba — click para autocompletar
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {DEMO_USERS.map(u => (
+              <button
+                key={u.role}
+                onClick={() => { setMode('login'); setForm({ ...form, email: u.email, password: u.password }); setError('') }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', borderRadius: 8, border: `1px solid ${u.color}30`,
+                  background: `${u.color}08`, cursor: 'pointer', textAlign: 'left',
+                  transition: 'all 0.15s', width: '100%',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${u.color}18`; e.currentTarget.style.borderColor = `${u.color}60` }}
+                onMouseLeave={e => { e.currentTarget.style.background = `${u.color}08`; e.currentTarget.style.borderColor = `${u.color}30` }}
+              >
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: `${u.color}20`, color: u.color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+                }}>
+                  {u.role.slice(0, 2).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: u.color }}>{u.role}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {u.desc}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>
+                    {u.email} · {u.password}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
