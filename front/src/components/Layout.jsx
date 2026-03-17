@@ -27,6 +27,26 @@ const PersonIcon = () => (
   </svg>
 )
 
+const CalendarIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <rect x="2" y="3.5" width="14" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M2 7.5H16" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    <path d="M6 2V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M12 2V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <rect x="5" y="10" width="2.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.7"/>
+    <rect x="10.5" y="10" width="2.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.7"/>
+  </svg>
+)
+
+const CompareIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <rect x="1" y="4" width="6" height="11" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <rect x="11" y="2" width="6" height="13" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M7 9.5H11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    <path d="M9.5 7.5L11.5 9.5L9.5 11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
 const SteeringWheelIcon = () => (
   <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
     <circle cx="26" cy="26" r="23" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5"/>
@@ -61,6 +81,8 @@ const navItems = [
   { to: '/', label: 'Dashboard', Icon: DashboardIcon, exact: true },
   { to: '/vehicles', label: 'Vehículos', Icon: CarIcon },
   { to: '/sellers', label: 'Vendedores', Icon: PersonIcon },
+  { to: '/test-drives', label: 'Turnos', Icon: CalendarIcon },
+  { to: '/compare', label: 'Comparar', Icon: CompareIcon },
 ]
 
 const pageTitles = {
@@ -69,6 +91,8 @@ const pageTitles = {
   '/vehicles/new': 'Agregar Vehículo',
   '/sellers': 'Vendedores',
   '/sellers/new': 'Agregar Vendedor',
+  '/test-drives': 'Turnos & Test Drives',
+  '/compare': 'Comparador de Vehículos',
 }
 
 export default function Layout() {

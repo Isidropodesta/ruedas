@@ -50,6 +50,58 @@ export function deleteVehicle(id) {
   return request(`/vehicles/${id}`, { method: 'DELETE' });
 }
 
+// Component Report
+export function getVehicleReport(id) {
+  return request(`/vehicles/${id}/report`);
+}
+
+export function saveVehicleReport(id, data) {
+  return request(`/vehicles/${id}/report`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+// Test Drives
+export function getVehicleTestDrives(id) {
+  return request(`/vehicles/${id}/test-drives`);
+}
+
+export function createTestDrive(vehicleId, data) {
+  return request(`/vehicles/${vehicleId}/test-drives`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+export function getAllTestDrives(filters = {}) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') params.append(k, v);
+  });
+  const qs = params.toString();
+  return request(`/test-drives${qs ? '?' + qs : ''}`);
+}
+
+export function updateTestDrive(id, data) {
+  return request(`/test-drives/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteTestDrive(id) {
+  return request(`/test-drives/${id}`, { method: 'DELETE' });
+}
+
+export function getPublicVehicle(id) {
+  const base = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
+  return fetch(`${base}/public/vehicles/${id}`).then(r => r.json());
+}
+
 // Sellers
 export function getSellers() {
   return request('/sellers');

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getVehicle, updateVehicleStatus, deleteVehicle, getSellers } from '../api'
 import StatusBadge from '../components/StatusBadge'
+import ComponentReport from '../components/ComponentReport'
+import TestDriveSection from '../components/TestDriveSection'
 
 const typeLabels = { utility: 'Utilitario', road: 'Ruta', luxury: 'Lujo' }
 
@@ -67,6 +69,7 @@ export default function VehicleDetail() {
   const [withdrawForm, setWithdrawForm] = useState({ withdrawal_reason: '' })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [publicCopied, setPublicCopied] = useState(false)
 
   useEffect(() => {
     Promise.all([getVehicle(id), getSellers()])
@@ -140,6 +143,16 @@ export default function VehicleDetail() {
     }
   }
 
+  const handleSharePublic = () => {
+    const url = `${window.location.origin}/public/vehicles/${id}`
+    navigator.clipboard.writeText(url).then(() => {
+      setPublicCopied(true)
+      setTimeout(() => setPublicCopied(false), 2000)
+    }).catch(() => {
+      prompt('Copiá este enlace:', url)
+    })
+  }
+
   if (loading) return <div className="loading">Cargando vehículo...</div>
   if (!vehicle) return <div className="alert alert-danger">Vehículo no encontrado.</div>
 
@@ -158,7 +171,18 @@ export default function VehicleDetail() {
             <span className={`tag tag-${vehicle.type}`}>{typeLabels[vehicle.type]}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Link
+            to={`/public/vehicles/${id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-dark"
+          >
+            Ver Ficha Pública
+          </Link>
+          <button className="btn btn-dark" onClick={handleSharePublic}>
+            {publicCopied ? 'Copiado!' : 'Compartir'}
+          </button>
           <Link to={`/vehicles/${id}/edit`} className="btn btn-secondary" onClick={e => {
             e.preventDefault()
             navigate(`/vehicles/${id}`, { state: { edit: true } })
@@ -267,6 +291,12 @@ export default function VehicleDetail() {
               </div>
             </div>
           )}
+
+          {/* Component Report */}
+          <ComponentReport vehicleId={id} />
+
+          {/* Test Drive Section */}
+          <TestDriveSection vehicleId={id} />
         </div>
 
         {/* Right panel - Status */}

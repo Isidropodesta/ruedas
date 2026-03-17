@@ -25,7 +25,17 @@
       "Bash(powershell.exe -Command \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1; Write-Host 'Procesos node detenidos'\")",
       "Bash(git:*)",
       "Read(//c/Users/isidr/OneDrive/Desktop/imagen/**)",
-      "Read(//c/Users/isidr/OneDrive/Desktop//**)"
+      "Read(//c/Users/isidr/OneDrive/Desktop//**)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:randomuser.me)",
+      "WebFetch(domain:en.m.wikipedia.org)",
+      "WebFetch(domain:upload.wikimedia.org)",
+      "WebFetch(domain:commons.wikimedia.org)",
+      "WebFetch(domain:api.wikimedia.org)",
+      "WebSearch",
+      "WebFetch(domain:www.wikidata.org)",
+      "WebFetch(domain:wikipedia.nucleos.com)",
+      "WebFetch(domain:handwiki.org)"
     ]
   }
 }

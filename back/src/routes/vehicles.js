@@ -260,6 +260,86 @@ router.put('/:id/status', async (req, res) => {
   }
 });
 
+// GET /api/vehicles/:id/report - get component report
+router.get('/:id/report', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      'SELECT component_report FROM vehicles WHERE id = $1',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Vehicle not found' });
+    }
+    res.json({ success: true, data: result.rows[0].component_report || {} });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/vehicles/:id/report - save/update component report
+router.put('/:id/report', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const report = req.body;
+    const result = await pool.query(
+      'UPDATE vehicles SET component_report = $1 WHERE id = $2 RETURNING component_report',
+      [JSON.stringify(report), id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Vehicle not found' });
+    }
+    res.json({ success: true, data: result.rows[0].component_report });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/vehicles/:id/test-drives - list test drives for vehicle
+router.get('/:id/test-drives', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT td.*, s.name AS seller_name
+       FROM test_drives td
+       LEFT JOIN sellers s ON s.id = td.seller_id
+       WHERE td.vehicle_id = $1
+       ORDER BY td.scheduled_at DESC`,
+      [id]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/vehicles/:id/test-drives - create test drive
+router.post('/:id/test-drives', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { client_name, client_phone, client_email, scheduled_at, notes, seller_id } = req.body;
+
+    if (!client_name || !scheduled_at) {
+      return res.status(400).json({ success: false, error: 'client_name and scheduled_at are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO test_drives (vehicle_id, client_name, client_phone, client_email, scheduled_at, notes, seller_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [id, client_name, client_phone || null, client_email || null, scheduled_at, notes || null, seller_id || null]
+    );
+
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // DELETE /api/vehicles/:id
 router.delete('/:id', async (req, res) => {
   try {
@@ -271,6 +351,39 @@ router.delete('/:id', async (req, res) => {
     }
 
     res.json({ success: true, data: { id: result.rows[0].id } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/public/vehicles/:id - public vehicle detail (no auth needed)
+// Note: This is mounted under /api/public in index.js
+router.get('/public/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const vehicleResult = await pool.query(
+      `SELECT v.*, s.name AS seller_name
+       FROM vehicles v
+       LEFT JOIN sellers s ON s.id = v.seller_id
+       WHERE v.id = $1`,
+      [id]
+    );
+
+    if (vehicleResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Vehicle not found' });
+    }
+
+    const photosResult = await pool.query(
+      'SELECT id, url FROM vehicle_photos WHERE vehicle_id = $1 ORDER BY id',
+      [id]
+    );
+
+    const vehicle = vehicleResult.rows[0];
+    vehicle.photos = photosResult.rows;
+
+    res.json({ success: true, data: vehicle });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
