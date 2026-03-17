@@ -1,15 +1,21 @@
-export default function KpiCard({ icon, iconColor = 'blue', title, value, subtitle, trend }) {
+export default function KpiCard({ icon, label, value, sub, color = 'blue', trend }) {
   return (
     <div className="kpi-card">
-      <div className={`kpi-icon ${iconColor}`}>
-        {icon}
+      <div className={`kpi-orb ${color}`} />
+      <div className="kpi-top">
+        <div className="kpi-icon-row">
+          {icon && <span className="kpi-icon-emoji">{icon}</span>}
+          <span className="kpi-label">{label}</span>
+        </div>
       </div>
-      <div className="kpi-body">
-        <div className="kpi-label">{title}</div>
+      <div className="kpi-bottom">
         <div className="kpi-value">{value}</div>
-        {subtitle && <div className="kpi-sub">{subtitle}</div>}
+        {sub && <div className="kpi-sub">{sub}</div>}
         {trend !== undefined && (
-          <div className={`kpi-sub`} style={{ color: trend >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+          <div
+            className="kpi-sub"
+            style={{ color: trend >= 0 ? 'var(--success)' : 'var(--danger)', marginTop: 2 }}
+          >
             {trend >= 0 ? '▲' : '▼'} {Math.abs(trend)}%
           </div>
         )}

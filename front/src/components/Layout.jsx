@@ -29,13 +29,9 @@ export default function Layout() {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-mark">
-            <div className="sidebar-logo-icon">🚘</div>
-            <div>
-              <h1>RUEDAS</h1>
-              <p>Concesionaria</p>
-            </div>
-          </div>
+          <span className="sidebar-logo-icon">🏎</span>
+          <h1>RUEDAS</h1>
+          <p>Concesionaria</p>
         </div>
 
         <nav className="sidebar-nav">
@@ -54,7 +50,7 @@ export default function Layout() {
         </nav>
 
         <div className="sidebar-footer">
-          Sistema interno v1.0
+          Sistema Interno v1.0
         </div>
       </aside>
 
