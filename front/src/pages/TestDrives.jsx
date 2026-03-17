@@ -54,12 +54,17 @@ export default function TestDrives() {
     ? allDrives
     : allDrives.filter(td => td.status === activeTab)
 
+  const [changingId, setChangingId] = useState(null)
+
   const handleStatus = async (id, status) => {
+    setChangingId(id)
     try {
       const res = await updateTestDrive(id, { status })
       setAllDrives(prev => prev.map(td => td.id === id ? { ...td, ...res.data } : td))
     } catch (err) {
       alert('Error: ' + err.message)
+    } finally {
+      setChangingId(null)
     }
   }
 
@@ -199,22 +204,21 @@ export default function TestDrives() {
                       </div>
                     )}
 
-                    {td.status === 'pending' && (
-                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                        <button
-                          className="btn btn-success btn-sm"
-                          onClick={() => handleStatus(td.id, 'completed')}
-                        >
-                          Completar
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleStatus(td.id, 'cancelled')}
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Cambiar estado:</span>
+                      {['pending', 'completed', 'cancelled']
+                        .filter(s => s !== td.status)
+                        .map(s => (
+                          <button
+                            key={s}
+                            disabled={changingId === td.id}
+                            className={`btn btn-sm ${s === 'completed' ? 'btn-success' : s === 'cancelled' ? 'btn-danger' : 'btn-secondary'}`}
+                            onClick={() => handleStatus(td.id, s)}
+                          >
+                            {changingId === td.id ? '...' : STATUS_CONFIG[s].label}
+                          </button>
+                        ))}
+                    </div>
                   </div>
                 </div>
               </div>
