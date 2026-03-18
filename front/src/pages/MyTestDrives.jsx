@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getMyTestDrives } from '../api'
+import { getMyTestDrives, cancelMyTestDrive } from '../api'
 import { useAuth } from '../context/AuthContext'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
@@ -30,6 +30,20 @@ export default function MyTestDrives() {
   const [testDrives, setTestDrives] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [cancelling, setCancelling] = useState(null)
+
+  const handleCancel = async (id) => {
+    if (!confirm('¿Cancelar este turno?')) return
+    setCancelling(id)
+    try {
+      await cancelMyTestDrive(id)
+      setTestDrives(prev => prev.map(td => td.id === id ? { ...td, status: 'cancelled' } : td))
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setCancelling(null)
+    }
+  }
 
   useEffect(() => {
     if (!user) return
@@ -126,7 +140,7 @@ export default function MyTestDrives() {
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                       <div>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
                           Fecha del turno
@@ -144,6 +158,23 @@ export default function MyTestDrives() {
                             {td.notes}
                           </div>
                         </div>
+                      )}
+                      {td.status === 'pending' && (
+                        <button
+                          onClick={() => handleCancel(td.id)}
+                          disabled={cancelling === td.id}
+                          style={{
+                            marginLeft: 'auto', padding: '6px 14px', borderRadius: 8,
+                            border: '1px solid rgba(232,80,64,0.4)',
+                            background: 'rgba(232,80,64,0.08)',
+                            color: '#e85040', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(232,80,64,0.18)'; e.currentTarget.style.borderColor = 'rgba(232,80,64,0.7)' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(232,80,64,0.08)'; e.currentTarget.style.borderColor = 'rgba(232,80,64,0.4)' }}
+                        >
+                          {cancelling === td.id ? 'Cancelando...' : 'Cancelar turno'}
+                        </button>
                       )}
                     </div>
                   </div>

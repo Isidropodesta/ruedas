@@ -66,6 +66,42 @@ router.get('/mine', requireRole('cliente', 'vendedor', 'dueno'), async (req, res
   }
 });
 
+// PUT /api/test-drives/:id/cancel - cliente cancels their own pending test drive
+router.put('/:id/cancel', requireRole('cliente', 'vendedor', 'dueno'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const email = req.user.email;
+
+    // Verify the test drive belongs to this client and is still pending
+    const check = await pool.query(
+      'SELECT * FROM test_drives WHERE id = $1',
+      [id]
+    );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Turno no encontrado' });
+    }
+    const td = check.rows[0];
+
+    // Clientes only can cancel their own; vendedor/dueno can cancel any
+    if (req.user.role === 'cliente' && td.client_email !== email) {
+      return res.status(403).json({ success: false, error: 'No tenés permiso para cancelar este turno' });
+    }
+    if (td.status !== 'pending') {
+      return res.status(400).json({ success: false, error: 'Solo se pueden cancelar turnos pendientes' });
+    }
+
+    const result = await pool.query(
+      'UPDATE test_drives SET status = $1 WHERE id = $2 RETURNING *',
+      ['cancelled', id]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // PUT /api/test-drives/:id - update status/notes
 router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {

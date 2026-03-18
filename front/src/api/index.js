@@ -166,6 +166,10 @@ export function getMyTestDrives() {
   return request('/test-drives/mine');
 }
 
+export function cancelMyTestDrive(id) {
+  return request(`/test-drives/${id}/cancel`, { method: 'PUT' });
+}
+
 // Auth
 export function login(email, password) {
   return request('/auth/login', {
