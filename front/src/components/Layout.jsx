@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
+import GlobalSearch from './GlobalSearch'
 
 const DashboardIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -45,6 +47,22 @@ const CompareIcon = () => (
     <rect x="11" y="2" width="6" height="13" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.4"/>
     <path d="M7 9.5H11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
     <path d="M9.5 7.5L11.5 9.5L9.5 11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const HeartIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <path d="M9 15s-6-4.5-6-8.5A3.5 3.5 0 0 1 9 4.5a3.5 3.5 0 0 1 6 2c0 4-6 8.5-6 8.5z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+)
+
+const MyTurnosIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <rect x="2" y="3.5" width="14" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M2 7.5H16" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    <path d="M6 2V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M12 2V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M6 11l2 2 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 )
 
@@ -97,6 +115,8 @@ const navByRole = {
     { to: '/sellers', label: 'Vendedores', Icon: PersonIcon },
     { to: '/test-drives', label: 'Turnos', Icon: CalendarIcon },
     { to: '/compare', label: 'Comparar', Icon: CompareIcon },
+    { to: '/favorites', label: 'Favoritos', Icon: HeartIcon },
+    { to: '/my-test-drives', label: 'Mis Turnos', Icon: MyTurnosIcon },
     { to: '/users', label: 'Usuarios', Icon: UsersIcon },
   ],
   vendedor: [
@@ -105,10 +125,14 @@ const navByRole = {
     { to: '/sellers', label: 'Vendedores', Icon: PersonIcon },
     { to: '/test-drives', label: 'Turnos', Icon: CalendarIcon },
     { to: '/compare', label: 'Comparar', Icon: CompareIcon },
+    { to: '/favorites', label: 'Favoritos', Icon: HeartIcon },
+    { to: '/my-test-drives', label: 'Mis Turnos', Icon: MyTurnosIcon },
   ],
   cliente: [
     { to: '/vehicles', label: 'Catálogo', Icon: CarIcon },
     { to: '/compare', label: 'Comparar', Icon: CompareIcon },
+    { to: '/favorites', label: 'Favoritos', Icon: HeartIcon },
+    { to: '/my-test-drives', label: 'Mis Turnos', Icon: MyTurnosIcon },
   ],
 }
 
@@ -121,12 +145,15 @@ const pageTitles = {
   '/test-drives': 'Turnos & Test Drives',
   '/compare': 'Comparador de Vehículos',
   '/users': 'Gestión de Usuarios',
+  '/favorites': 'Favoritos',
+  '/my-test-drives': 'Mis Turnos',
 }
 
 export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { theme, toggle: toggleTheme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navItems = user ? (navByRole[user.role] || navByRole.cliente) : navByRole.cliente
@@ -179,6 +206,26 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        {/* Theme toggle button */}
+        <div style={{ padding: '8px 20px', borderTop: '1px solid var(--border)' }}>
+          <button
+            onClick={toggleTheme}
+            style={{
+              width: '100%', padding: '8px 0', borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'transparent', color: 'var(--text-muted)',
+              fontSize: 13, cursor: 'pointer', fontWeight: 500,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+          </button>
+        </div>
 
         {!user && (
           <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
@@ -238,6 +285,7 @@ export default function Layout() {
             <span className="topbar-title">{getTitle()}</span>
           </div>
           <div className="topbar-right">
+            <GlobalSearch />
             <div className="topbar-badge">
               <span className="topbar-dot" />
               {user ? `${user.name.split(' ')[0]} · ${ROLE_LABELS[user.role]}` : 'Visitante'}

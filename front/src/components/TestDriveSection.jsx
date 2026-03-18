@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getVehicleTestDrives, createTestDrive, updateTestDrive, getSellers } from '../api'
+import { useAuth } from '../context/AuthContext'
 
 function formatDateTime(d) {
   if (!d) return '-'
@@ -10,22 +11,172 @@ function formatDateTime(d) {
 }
 
 const STATUS_LABELS = {
-  pending: { label: 'Pendiente', color: 'var(--warning)' },
+  pending:   { label: 'Pendiente',  color: 'var(--warning)' },
   completed: { label: 'Completado', color: 'var(--success)' },
-  cancelled: { label: 'Cancelado', color: 'var(--danger)' },
+  cancelled: { label: 'Cancelado',  color: 'var(--danger)'  },
 }
 
-export default function TestDriveSection({ vehicleId }) {
-  const [testDrives, setTestDrives] = useState([])
-  const [sellers, setSellers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
+const EMPTY_FORM = {
+  client_name: '', client_phone: '', client_email: '',
+  scheduled_at: '', notes: '', seller_id: '',
+}
+
+// ── Cliente: simple request form ──────────────────────────────────
+function ClientTestDriveForm({ vehicleId, vehicle }) {
+  const { user } = useAuth()
   const [form, setForm] = useState({
-    client_name: '', client_phone: '', client_email: '',
-    scheduled_at: '', notes: '', seller_id: '',
+    ...EMPTY_FORM,
+    client_name: user?.name || '',
+    client_email: user?.email || '',
   })
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError]           = useState('')
+  const [success, setSuccess]       = useState(false)
+
+  if (vehicle?.status !== 'available') return null
+
+  // Visitors: prompt to log in first
+  if (!user) {
+    return (
+      <div className="form-section">
+        <div style={{
+          fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
+          textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 16,
+          paddingBottom: 14, borderBottom: '1px solid var(--border)',
+        }}>
+          Solicitar Test Drive
+        </div>
+        <div style={{
+          background: 'rgba(74,232,208,0.06)', border: '1px solid rgba(74,232,208,0.2)',
+          borderRadius: 10, padding: '16px 20px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+            Iniciá sesión para solicitar un test drive de este vehículo.
+          </div>
+          <a href="/login" className="btn btn-primary btn-sm">Iniciar sesión</a>
+        </div>
+      </div>
+    )
+  }
+
+  const handleSubmit = async () => {
+    if (!form.client_name || !form.scheduled_at) {
+      setError('Tu nombre y la fecha/hora son requeridos.')
+      return
+    }
+    setSubmitting(true); setError('')
+    try {
+      await createTestDrive(vehicleId, {
+        client_name: form.client_name,
+        client_phone: form.client_phone,
+        client_email: form.client_email,
+        scheduled_at: form.scheduled_at,
+        notes: form.notes,
+      })
+      setSuccess(true)
+      setForm(prev => ({ ...EMPTY_FORM, client_name: prev.client_name, client_email: prev.client_email }))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="form-section">
+      <div style={{
+        fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
+        textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 16,
+        paddingBottom: 14, borderBottom: '1px solid var(--border)',
+      }}>
+        Solicitar Test Drive
+      </div>
+
+      {success ? (
+        <div style={{
+          background: 'rgba(74,232,208,0.08)', border: '1px solid rgba(74,232,208,0.25)',
+          borderRadius: 10, padding: '16px 20px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>✅</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', marginBottom: 4 }}>
+            ¡Solicitud enviada!
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            Nos pondremos en contacto para confirmar tu turno.
+          </div>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ marginTop: 14 }}
+            onClick={() => setSuccess(false)}
+          >
+            Hacer otra solicitud
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {error && <div className="alert alert-danger">{error}</div>}
+          <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <div className="form-group" style={{ gridColumn: '1/-1' }}>
+              <label>Tu nombre *</label>
+              <input
+                value={form.client_name}
+                onChange={e => setForm(p => ({ ...p, client_name: e.target.value }))}
+                placeholder="Nombre completo"
+              />
+            </div>
+            <div className="form-group">
+              <label>Teléfono</label>
+              <input
+                value={form.client_phone}
+                onChange={e => setForm(p => ({ ...p, client_phone: e.target.value }))}
+                placeholder="+54 11..."
+              />
+            </div>
+            <div className="form-group">
+              <label>Email</label>
+              <input
+                type="email" value={form.client_email}
+                onChange={e => setForm(p => ({ ...p, client_email: e.target.value }))}
+                placeholder="tu@email.com"
+              />
+            </div>
+            <div className="form-group" style={{ gridColumn: '1/-1' }}>
+              <label>Fecha y hora preferida *</label>
+              <input
+                type="datetime-local" value={form.scheduled_at}
+                onChange={e => setForm(p => ({ ...p, scheduled_at: e.target.value }))}
+              />
+            </div>
+            <div className="form-group" style={{ gridColumn: '1/-1' }}>
+              <label>Comentarios</label>
+              <textarea
+                value={form.notes}
+                onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                placeholder="Alguna consulta o preferencia horaria..."
+                style={{ minHeight: 60 }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Enviando...' : 'Solicitar Test Drive'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Vendedor/Dueño: full management view ──────────────────────────
+function ManagerTestDriveSection({ vehicleId }) {
+  const [testDrives, setTestDrives] = useState([])
+  const [sellers, setSellers]       = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [showModal, setShowModal]   = useState(false)
+  const [form, setForm]             = useState(EMPTY_FORM)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError]           = useState('')
 
   const load = () => {
     Promise.all([getVehicleTestDrives(vehicleId), getSellers()])
@@ -44,8 +195,7 @@ export default function TestDriveSection({ vehicleId }) {
       setError('Nombre del cliente y fecha/hora son requeridos.')
       return
     }
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true); setError('')
     try {
       const res = await createTestDrive(vehicleId, {
         ...form,
@@ -53,26 +203,24 @@ export default function TestDriveSection({ vehicleId }) {
       })
       setTestDrives(prev => [res.data, ...prev])
       setShowModal(false)
-      setForm({ client_name: '', client_phone: '', client_email: '', scheduled_at: '', notes: '', seller_id: '' })
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
+      setForm(EMPTY_FORM)
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
   }
 
   const handleStatus = async (id, status) => {
     try {
       const res = await updateTestDrive(id, { status })
       setTestDrives(prev => prev.map(td => td.id === id ? { ...td, ...res.data } : td))
-    } catch (err) {
-      alert('Error: ' + err.message)
-    }
+    } catch (err) { alert('Error: ' + err.message) }
   }
 
   return (
     <div className="form-section">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)' }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid var(--border)',
+      }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
           Turnos & Test Drives
         </span>
@@ -124,16 +272,12 @@ export default function TestDriveSection({ vehicleId }) {
                           className="btn btn-success btn-sm"
                           style={{ padding: '4px 10px', fontSize: 11 }}
                           onClick={() => handleStatus(td.id, 'completed')}
-                        >
-                          Completar
-                        </button>
+                        >Completar</button>
                         <button
                           className="btn btn-danger btn-sm"
                           style={{ padding: '4px 10px', fontSize: 11 }}
                           onClick={() => handleStatus(td.id, 'cancelled')}
-                        >
-                          Cancelar
-                        </button>
+                        >Cancelar</button>
                       </div>
                     )}
                   </div>
@@ -170,8 +314,7 @@ export default function TestDriveSection({ vehicleId }) {
                 <div className="form-group">
                   <label>Email</label>
                   <input
-                    type="email"
-                    value={form.client_email}
+                    type="email" value={form.client_email}
                     onChange={e => setForm(p => ({ ...p, client_email: e.target.value }))}
                     placeholder="email@ejemplo.com"
                   />
@@ -179,17 +322,13 @@ export default function TestDriveSection({ vehicleId }) {
                 <div className="form-group">
                   <label>Fecha y Hora *</label>
                   <input
-                    type="datetime-local"
-                    value={form.scheduled_at}
+                    type="datetime-local" value={form.scheduled_at}
                     onChange={e => setForm(p => ({ ...p, scheduled_at: e.target.value }))}
                   />
                 </div>
                 <div className="form-group">
                   <label>Vendedor Asignado</label>
-                  <select
-                    value={form.seller_id}
-                    onChange={e => setForm(p => ({ ...p, seller_id: e.target.value }))}
-                  >
+                  <select value={form.seller_id} onChange={e => setForm(p => ({ ...p, seller_id: e.target.value }))}>
                     <option value="">Sin asignar</option>
                     {sellers.filter(s => s.active).map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
@@ -218,4 +357,14 @@ export default function TestDriveSection({ vehicleId }) {
       )}
     </div>
   )
+}
+
+// ── Main export: switches based on role ───────────────────────────
+export default function TestDriveSection({ vehicleId, vehicle }) {
+  const { user, loading: authLoading } = useAuth()
+  const canManage = user && (user.role === 'vendedor' || user.role === 'dueno')
+
+  if (authLoading) return null // don't flash the wrong UI while auth resolves
+  if (canManage) return <ManagerTestDriveSection vehicleId={vehicleId} />
+  return <ClientTestDriveForm vehicleId={vehicleId} vehicle={vehicle} />
 }

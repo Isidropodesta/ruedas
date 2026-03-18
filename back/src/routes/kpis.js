@@ -77,4 +77,49 @@ router.get('/monthly', async (req, res) => {
   }
 });
 
+// GET /api/kpis/advanced
+router.get('/advanced', async (req, res) => {
+  try {
+    // avg_days_to_sell: average days between created_at and sold_at for sold vehicles
+    const avgResult = await pool.query(`
+      SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (sold_at - created_at)) / 86400), 0) AS avg_days_to_sell
+      FROM vehicles
+      WHERE status = 'sold' AND sold_at IS NOT NULL AND created_at IS NOT NULL
+    `);
+
+    // stale_vehicles: available vehicles with more than 30 days without selling
+    const staleResult = await pool.query(`
+      SELECT
+        v.id, v.brand, v.model, v.year,
+        EXTRACT(DAY FROM NOW() - v.created_at)::INT AS days_in_stock,
+        (SELECT vp.url FROM vehicle_photos vp WHERE vp.vehicle_id = v.id ORDER BY vp.id LIMIT 1) AS photo
+      FROM vehicles v
+      WHERE v.status = 'available'
+        AND v.created_at <= NOW() - INTERVAL '30 days'
+      ORDER BY days_in_stock DESC
+    `);
+
+    // stock_by_brand: count of available vehicles per brand
+    const brandResult = await pool.query(`
+      SELECT brand, COUNT(*) AS count
+      FROM vehicles
+      WHERE status = 'available' AND brand IS NOT NULL
+      GROUP BY brand
+      ORDER BY count DESC
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        avg_days_to_sell: Math.round(parseFloat(avgResult.rows[0].avg_days_to_sell) * 10) / 10,
+        stale_vehicles: staleResult.rows,
+        stock_by_brand: brandResult.rows,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

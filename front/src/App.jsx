@@ -1,5 +1,23 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
+import { FavoritesProvider } from './context/FavoritesContext'
+
+const PING_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api/vehicles?_ping=1`
+  : null
+
+function KeepAlive() {
+  useEffect(() => {
+    if (!PING_URL) return // local dev — no need
+    const ping = () => fetch(PING_URL, { method: 'GET' }).catch(() => {})
+    ping() // ping immediately on mount
+    const id = setInterval(ping, 9 * 60 * 1000) // every 9 min
+    return () => clearInterval(id)
+  }, [])
+  return null
+}
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -13,6 +31,8 @@ import TestDrives from './pages/TestDrives'
 import Compare from './pages/Compare'
 import PublicVehicle from './pages/PublicVehicle'
 import Users from './pages/Users'
+import Favorites from './pages/Favorites'
+import MyTestDrives from './pages/MyTestDrives'
 
 // Requires authentication; optionally restricts by role
 function PrivateRoute({ children, roles }) {
@@ -44,6 +64,10 @@ function AppRoutes() {
         <Route path="/vehicles" element={<Vehicles />} />
         <Route path="/vehicles/:id" element={<VehicleDetail />} />
         <Route path="/compare" element={<Compare />} />
+        <Route path="/favorites" element={<Favorites />} />
+
+        {/* Authenticated — any role */}
+        <Route path="/my-test-drives" element={<PrivateRoute><MyTestDrives /></PrivateRoute>} />
 
         {/* Vendedor + Dueño only */}
         <Route path="/" element={<PrivateRoute roles={['vendedor', 'dueno']}><Dashboard /></PrivateRoute>} />
@@ -66,9 +90,14 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <FavoritesProvider>
+          <AuthProvider>
+            <KeepAlive />
+            <AppRoutes />
+          </AuthProvider>
+        </FavoritesProvider>
+      </ThemeProvider>
     </BrowserRouter>
   )
 }

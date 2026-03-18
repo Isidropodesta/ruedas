@@ -44,6 +44,26 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/test-drives/mine - get test drives for the current user (by client_email)
+router.get('/mine', requireRole('cliente', 'vendedor', 'dueno'), async (req, res) => {
+  try {
+    const email = req.user.email;
+    const result = await pool.query(`
+      SELECT td.*,
+        v.brand, v.model, v.year,
+        (SELECT vp.url FROM vehicle_photos vp WHERE vp.vehicle_id = v.id ORDER BY vp.id LIMIT 1) AS vehicle_photo
+      FROM test_drives td
+      LEFT JOIN vehicles v ON v.id = td.vehicle_id
+      WHERE td.client_email = $1
+      ORDER BY td.scheduled_at DESC
+    `, [email]);
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // PUT /api/test-drives/:id - update status/notes
 router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {

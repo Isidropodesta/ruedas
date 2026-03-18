@@ -152,6 +152,20 @@ export function getMonthlyKpis() {
   return request('/kpis/monthly');
 }
 
+export function getAdvancedKpis() {
+  return request('/kpis/advanced');
+}
+
+// Vehicle price history
+export function getVehiclePriceHistory(id) {
+  return request('/vehicles/' + id + '/price-history');
+}
+
+// My test drives (authenticated)
+export function getMyTestDrives() {
+  return request('/test-drives/mine');
+}
+
 // Auth
 export function login(email, password) {
   return request('/auth/login', {

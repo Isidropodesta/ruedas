@@ -63,7 +63,7 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
     const vehicleResult = await pool.query(
-      `SELECT v.*, s.name AS seller_name
+      `SELECT v.*, v.notes_internal, s.name AS seller_name
        FROM vehicles v
        LEFT JOIN sellers s ON s.id = v.seller_id
        WHERE v.id = $1`,
@@ -163,11 +163,13 @@ router.post('/', requireRole('vendedor', 'dueno'), upload.array('photos'), async
 
 // PUT /api/vehicles/:id - update vehicle data
 router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
     const {
       brand, model, year, km, price_min, price_max,
-      color, description, type, features
+      color, description, type, features, notes_internal
     } = req.body;
 
     let parsedFeatures = null;
@@ -177,6 +179,18 @@ router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
       } catch {
         parsedFeatures = {};
       }
+    }
+
+    // Check if price changed — fetch current values first
+    const priceChanging = price_min !== undefined || price_max !== undefined;
+    let currentVehicle = null;
+    if (priceChanging) {
+      const cur = await client.query('SELECT price_min, price_max FROM vehicles WHERE id = $1', [id]);
+      if (cur.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: 'Vehicle not found' });
+      }
+      currentVehicle = cur.rows[0];
     }
 
     const fields = [];
@@ -193,25 +207,49 @@ router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
     if (description !== undefined) { fields.push(`description = $${idx++}`); params.push(description); }
     if (type !== undefined) { fields.push(`type = $${idx++}`); params.push(type); }
     if (parsedFeatures !== null) { fields.push(`features = $${idx++}`); params.push(JSON.stringify(parsedFeatures)); }
+    if (notes_internal !== undefined) { fields.push(`notes_internal = $${idx++}`); params.push(notes_internal); }
 
     if (fields.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ success: false, error: 'No fields to update' });
     }
 
     params.push(id);
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE vehicles SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
       params
     );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Vehicle not found' });
     }
 
+    // If price changed, insert into price_history
+    if (priceChanging && currentVehicle) {
+      const newPriceMin = price_min !== undefined ? (price_min ? parseFloat(price_min) : null) : currentVehicle.price_min;
+      const newPriceMax = price_max !== undefined ? (price_max ? parseFloat(price_max) : null) : currentVehicle.price_max;
+      const oldMin = currentVehicle.price_min;
+      const oldMax = currentVehicle.price_max;
+      const priceMinChanged = parseFloat(oldMin) !== parseFloat(newPriceMin);
+      const priceMaxChanged = parseFloat(oldMax) !== parseFloat(newPriceMax);
+      if (priceMinChanged || priceMaxChanged) {
+        await client.query(
+          `INSERT INTO price_history (vehicle_id, old_price_min, old_price_max, new_price_min, new_price_max)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [id, oldMin, oldMax, newPriceMin, newPriceMax]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -352,6 +390,21 @@ router.delete('/:id', requireRole('dueno'), async (req, res) => {
     }
 
     res.json({ success: true, data: { id: result.rows[0].id } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/vehicles/:id/price-history - get price history for a vehicle
+router.get('/:id/price-history', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT * FROM price_history WHERE vehicle_id = $1 ORDER BY changed_at DESC`,
+      [id]
+    );
+    res.json({ success: true, data: result.rows });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
