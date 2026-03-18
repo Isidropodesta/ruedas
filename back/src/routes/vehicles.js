@@ -1,14 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 const pool = require('../db');
-const { requireRole } = require('../middleware/auth');
+const { requireRole, optionalAuth } = require('../middleware/auth');
 const { uploadPhoto } = require('../cloudinary');
 const { sendMail, testDriveRequestedHtml } = require('../email');
 const { createNotification } = require('./notifications');
 
 const multer = require('multer');
 const upload = multer({ dest: path.join(__dirname, '../../uploads') });
+
+const testDriveLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Límite de solicitudes de test drive alcanzado. Intentá en 1 hora.' },
+});
 
 // GET /api/vehicles - list with filters
 router.get('/', async (req, res) => {
@@ -61,12 +70,17 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/vehicles/:id - detail with photos and features
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const isManager = req.user && ['vendedor', 'dueno'].includes(req.user.role);
 
     const vehicleResult = await pool.query(
-      `SELECT v.*, v.notes_internal, s.name AS seller_name
+      `SELECT v.id, v.brand, v.model, v.year, v.type, v.status, v.price, v.km,
+              v.color, v.description, v.features, v.seller_id, v.sale_price,
+              v.sold_at, v.withdrawal_reason, v.created_at, v.updated_at,
+              ${isManager ? 'v.notes_internal,' : ''}
+              s.name AS seller_name
        FROM vehicles v
        LEFT JOIN sellers s ON s.id = v.seller_id
        WHERE v.id = $1`,
@@ -91,7 +105,7 @@ router.get('/:id', async (req, res) => {
     res.json({ success: true, data: vehicle });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Error al obtener vehículo' });
   }
 });
 
@@ -468,7 +482,7 @@ router.get('/:id/test-drives', async (req, res) => {
 });
 
 // POST /api/vehicles/:id/test-drives - create test drive
-router.post('/:id/test-drives', async (req, res) => {
+router.post('/:id/test-drives', testDriveLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { client_name, client_phone, client_email, scheduled_at, notes, seller_id } = req.body;

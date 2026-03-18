@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { requireRole } = require('../middleware/auth');
 
 // GET /api/sellers - list all sellers with sold count
 router.get('/', async (req, res) => {
@@ -18,7 +19,7 @@ router.get('/', async (req, res) => {
     res.json({ success: true, data: result.rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Error al obtener vendedores' });
   }
 });
 
@@ -29,7 +30,7 @@ router.get('/:id', async (req, res) => {
 
     const sellerResult = await pool.query('SELECT * FROM sellers WHERE id = $1', [id]);
     if (sellerResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Seller not found' });
+      return res.status(404).json({ success: false, error: 'Vendedor no encontrado' });
     }
 
     const statsResult = await pool.query(`
@@ -66,35 +67,35 @@ router.get('/:id', async (req, res) => {
     res.json({ success: true, data: seller });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Error al obtener vendedor' });
   }
 });
 
-// POST /api/sellers - create seller
-router.post('/', async (req, res) => {
+// POST /api/sellers - create seller (vendedor/dueno only)
+router.post('/', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {
     const { name, email, phone, hire_date } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ success: false, error: 'name is required' });
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'El nombre es requerido' });
     }
 
     const result = await pool.query(
       `INSERT INTO sellers (name, email, phone, hire_date)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [name, email || null, phone || null, hire_date || null]
+      [name.trim(), email || null, phone || null, hire_date || null]
     );
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Error al crear vendedor' });
   }
 });
 
-// PUT /api/sellers/:id - update seller
-router.put('/:id', async (req, res) => {
+// PUT /api/sellers/:id - update seller (vendedor/dueno only)
+router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, phone, hire_date } = req.body;
@@ -109,7 +110,7 @@ router.put('/:id', async (req, res) => {
     if (hire_date !== undefined) { fields.push(`hire_date = $${idx++}`); params.push(hire_date); }
 
     if (fields.length === 0) {
-      return res.status(400).json({ success: false, error: 'No fields to update' });
+      return res.status(400).json({ success: false, error: 'No hay campos para actualizar' });
     }
 
     params.push(id);
@@ -119,18 +120,18 @@ router.put('/:id', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Seller not found' });
+      return res.status(404).json({ success: false, error: 'Vendedor no encontrado' });
     }
 
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Error al actualizar vendedor' });
   }
 });
 
-// PUT /api/sellers/:id/toggle - toggle active status
-router.put('/:id/toggle', async (req, res) => {
+// PUT /api/sellers/:id/toggle - toggle active status (dueno only)
+router.put('/:id/toggle', requireRole('dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
@@ -139,13 +140,13 @@ router.put('/:id/toggle', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Seller not found' });
+      return res.status(404).json({ success: false, error: 'Vendedor no encontrado' });
     }
 
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Error al actualizar vendedor' });
   }
 });
 

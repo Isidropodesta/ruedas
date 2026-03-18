@@ -5,8 +5,8 @@ const { requireRole } = require('../middleware/auth');
 const { sendMail, testDriveRequestedHtml, testDriveConfirmedHtml } = require('../email');
 const { createNotification } = require('./notifications');
 
-// GET /api/test-drives - list all upcoming/pending test drives sorted by scheduled_at
-router.get('/', async (req, res) => {
+// GET /api/test-drives - list all test drives (vendedor/dueno only)
+router.get('/', requireRole('vendedor', 'dueno'), async (req, res) => {
   try {
     const { status } = req.query;
     let query;

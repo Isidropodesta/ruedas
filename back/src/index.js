@@ -9,6 +9,8 @@ process.on('unhandledRejection', (reason) => {
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 
@@ -24,11 +26,23 @@ const notificationsRouter = require('./routes/notifications');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
   origin: ['https://ruedas-ochre.vercel.app', 'http://localhost:5173'],
   credentials: true,
 }));
 app.use(express.json());
+
+// Rate limiting global — 200 req/minuto por IP
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Demasiadas solicitudes. Intentá en un momento.' },
+});
+app.use('/api', globalLimiter);
+
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Public routes — no auth required
@@ -40,7 +54,9 @@ app.get('/api/public/vehicles/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const vehicleResult = await pool.query(
-      `SELECT v.*, s.name AS seller_name
+      `SELECT v.id, v.brand, v.model, v.year, v.type, v.status, v.price, v.km,
+              v.color, v.description, v.features, v.created_at,
+              s.name AS seller_name
        FROM vehicles v
        LEFT JOIN sellers s ON s.id = v.seller_id
        WHERE v.id = $1`,
@@ -76,8 +92,8 @@ app.use('/api/kpis', auth, requireRole('vendedor', 'dueno'), kpisRouter);
 // Test drives: auth required; role enforcement inside router
 app.use('/api/test-drives', auth, testDrivesRouter);
 
-// Users: dueno only (enforced inside router)
-app.use('/api/users', usersRouter);
+// Users: dueno only
+app.use('/api/users', auth, requireRole('dueno'), usersRouter);
 
 // Notifications: vendedor+ only
 app.use('/api/notifications', auth, requireRole('vendedor', 'dueno'), notificationsRouter);

@@ -50,11 +50,11 @@ export default function Login() {
     }
   }
 
-  const DEMO_USERS = [
+  const DEMO_USERS = import.meta.env.DEV ? [
     { role: 'Dueño',    email: 'admin@ruedas.com',   password: 'admin123',    color: '#e8c840', desc: 'Acceso total + gestión de usuarios' },
     { role: 'Vendedor', email: 'carlos@ruedas.com',  password: 'vendedor123', color: '#a87ff5', desc: 'Dashboard, vehículos y turnos' },
     { role: 'Cliente',  email: 'juan@email.com',     password: 'cliente123',  color: '#4ae8d0', desc: 'Catálogo y comparador' },
-  ]
+  ] : []
 
   return (
     <div style={{
@@ -178,8 +178,8 @@ export default function Login() {
           )}
         </div>
 
-        {/* Demo users */}
-        <div style={{
+        {/* Demo users — solo en desarrollo */}
+        {DEMO_USERS.length > 0 && <div style={{
           marginTop: 20,
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(255,255,255,0.08)',
@@ -223,7 +223,7 @@ export default function Login() {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   )
