@@ -2189,3 +2189,42 @@ tbody tr:hover td {
   .public-cta-section { padding: 28px 18px; }
   .public-info-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── Print / PDF export ─────────────────────────────────────── */
+@media print {
+  .sidebar,
+  .topbar,
+  .hamburger-btn,
+  .btn,
+  button,
+  .no-print,
+  .notification-bell,
+  nav {
+    display: none !important;
+  }
+
+  .app-layout { display: block !important; }
+  .main-content { margin-left: 0 !important; width: 100% !important; }
+  .page-content { padding: 0 !important; }
+
+  body, .card {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  a { color: inherit !important; text-decoration: none !important; }
+
+  .status-badge {
+    border: 1px solid #ccc !important;
+    background: transparent !important;
+    color: #333 !important;
+  }
+
+  img { max-width: 100% !important; }
+}

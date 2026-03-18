@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getVehicle, updateVehicleStatus, deleteVehicle, getSellers, getVehiclePriceHistory } from '../api'
+import { getVehicle, updateVehicleStatus, deleteVehicle, getSellers, getVehiclePriceHistory, getVehicleStats, getAppConfig } from '../api'
 import { useAuth } from '../context/AuthContext'
 import StatusBadge from '../components/StatusBadge'
 import ComponentReport from '../components/ComponentReport'
@@ -82,6 +82,10 @@ export default function VehicleDetail() {
 
   // Price history
   const [priceHistory, setPriceHistory]     = useState([])
+  // Stats
+  const [stats, setStats]                   = useState(null)
+  // Config (WhatsApp)
+  const [config, setConfig]                 = useState({})
 
   // Load vehicle immediately — public route, no auth needed
   useEffect(() => {
@@ -107,6 +111,21 @@ export default function VehicleDetail() {
       .then(res => setPriceHistory(res.data || []))
       .catch(() => {})
   }, [id, canManage])
+
+  // Load stats for managers
+  useEffect(() => {
+    if (!canManage || !id) return
+    getVehicleStats(id)
+      .then(res => setStats(res.data))
+      .catch(() => {})
+  }, [id, canManage])
+
+  // Load config (WhatsApp number)
+  useEffect(() => {
+    getAppConfig()
+      .then(res => res.success && setConfig(res.data || {}))
+      .catch(() => {})
+  }, [])
 
   // ESC to close lightbox
   useEffect(() => {
@@ -205,6 +224,24 @@ export default function VehicleDetail() {
           <button className="btn btn-dark" onClick={handleSharePublic}>
             {publicCopied ? '¡Copiado!' : 'Compartir'}
           </button>
+          <button
+            className="btn btn-dark"
+            onClick={() => window.print()}
+            title="Exportar PDF"
+          >
+            📄 PDF
+          </button>
+          {config.whatsapp_number && (
+            <a
+              href={`https://wa.me/${config.whatsapp_number.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, me interesa el ${vehicle.brand} ${vehicle.model} ${vehicle.year}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn"
+              style={{ background: '#25d366', color: '#fff' }}
+            >
+              💬 WhatsApp
+            </a>
+          )}
           {canManage && (
             <Link to={`/vehicles/${id}/edit`} className="btn btn-secondary" onClick={e => {
               e.preventDefault(); navigate(`/vehicles/${id}`, { state: { edit: true } })
@@ -455,6 +492,30 @@ export default function VehicleDetail() {
           {/* Internal notes — managers only */}
           {canManage && (
             <InternalNotesPanel vehicle={vehicle} onSave={updated => setVehicle(prev => ({ ...prev, ...updated }))} />
+          )}
+
+          {/* Stats — managers only */}
+          {canManage && stats && (
+            <div className="form-section">
+              <div className="form-section-title">Estadísticas del Vehículo</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                  { label: 'Vistas totales', value: stats.views_total, icon: '👁️' },
+                  { label: 'Vistas (7 días)', value: stats.views_7d, icon: '📈' },
+                  { label: 'Vistas (30 días)', value: stats.views_30d, icon: '📅' },
+                  { label: 'Test drives', value: stats.test_drives_total, icon: '🚗' },
+                ].map(({ label, value, icon }) => (
+                  <div key={label} style={{
+                    background: 'var(--bg)', borderRadius: 8, padding: '12px 14px',
+                    border: '1px solid var(--border)',
+                  }}>
+                    <div style={{ fontSize: 18, marginBottom: 4 }}>{icon}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)' }}>{value}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Price history — managers only */}

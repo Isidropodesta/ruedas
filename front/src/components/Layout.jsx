@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import GlobalSearch from './GlobalSearch'
+import NotificationBell from './NotificationBell'
 
 const DashboardIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -38,6 +39,28 @@ const CalendarIcon = () => (
     <path d="M12 2V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
     <rect x="5" y="10" width="2.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.7"/>
     <rect x="10.5" y="10" width="2.5" height="2.5" rx="0.5" fill="currentColor" opacity="0.7"/>
+  </svg>
+)
+
+const CalendarGridIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <rect x="2" y="3.5" width="14" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M2 7.5H16" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    <path d="M6 2V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M12 2V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <rect x="4.5" y="10" width="2" height="2" rx="0.4" fill="currentColor" opacity="0.6"/>
+    <rect x="8" y="10" width="2" height="2" rx="0.4" fill="currentColor" opacity="0.6"/>
+    <rect x="11.5" y="10" width="2" height="2" rx="0.4" fill="currentColor" opacity="0.6"/>
+    <rect x="4.5" y="13" width="2" height="2" rx="0.4" fill="currentColor" opacity="0.4"/>
+    <rect x="8" y="13" width="2" height="2" rx="0.4" fill="currentColor" opacity="0.4"/>
+  </svg>
+)
+
+const ProfileIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <circle cx="9" cy="6.5" r="3" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M3 15.5C3 12.5 5.7 10.2 9 10.2C12.3 10.2 15 12.5 15 15.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    <path d="M12 5.5l1 1-2 2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
   </svg>
 )
 
@@ -114,25 +137,30 @@ const navByRole = {
     { to: '/vehicles', label: 'Vehículos', Icon: CarIcon },
     { to: '/sellers', label: 'Vendedores', Icon: PersonIcon },
     { to: '/test-drives', label: 'Turnos', Icon: CalendarIcon },
+    { to: '/calendar', label: 'Calendario', Icon: CalendarGridIcon },
     { to: '/compare', label: 'Comparar', Icon: CompareIcon },
     { to: '/favorites', label: 'Favoritos', Icon: HeartIcon },
     { to: '/my-test-drives', label: 'Mis Turnos', Icon: MyTurnosIcon },
     { to: '/users', label: 'Usuarios', Icon: UsersIcon },
+    { to: '/profile', label: 'Mi Perfil', Icon: ProfileIcon },
   ],
   vendedor: [
     { to: '/', label: 'Dashboard', Icon: DashboardIcon, exact: true },
     { to: '/vehicles', label: 'Vehículos', Icon: CarIcon },
     { to: '/sellers', label: 'Vendedores', Icon: PersonIcon },
     { to: '/test-drives', label: 'Turnos', Icon: CalendarIcon },
+    { to: '/calendar', label: 'Calendario', Icon: CalendarGridIcon },
     { to: '/compare', label: 'Comparar', Icon: CompareIcon },
     { to: '/favorites', label: 'Favoritos', Icon: HeartIcon },
     { to: '/my-test-drives', label: 'Mis Turnos', Icon: MyTurnosIcon },
+    { to: '/profile', label: 'Mi Perfil', Icon: ProfileIcon },
   ],
   cliente: [
     { to: '/vehicles', label: 'Catálogo', Icon: CarIcon },
     { to: '/compare', label: 'Comparar', Icon: CompareIcon },
     { to: '/favorites', label: 'Favoritos', Icon: HeartIcon },
     { to: '/my-test-drives', label: 'Mis Turnos', Icon: MyTurnosIcon },
+    { to: '/profile', label: 'Mi Perfil', Icon: ProfileIcon },
   ],
 }
 
@@ -143,10 +171,12 @@ const pageTitles = {
   '/sellers': 'Vendedores',
   '/sellers/new': 'Agregar Vendedor',
   '/test-drives': 'Turnos & Test Drives',
+  '/calendar': 'Calendario de Turnos',
   '/compare': 'Comparador de Vehículos',
   '/users': 'Gestión de Usuarios',
   '/favorites': 'Favoritos',
   '/my-test-drives': 'Mis Turnos',
+  '/profile': 'Mi Perfil',
 }
 
 export default function Layout() {
@@ -286,10 +316,21 @@ export default function Layout() {
           </div>
           <div className="topbar-right">
             <GlobalSearch />
-            <div className="topbar-badge">
-              <span className="topbar-dot" />
-              {user ? `${user.name.split(' ')[0]} · ${ROLE_LABELS[user.role]}` : 'Visitante'}
-            </div>
+            <NotificationBell />
+            {user && (
+              <Link to="/profile" style={{ textDecoration: 'none' }}>
+                <div className="topbar-badge" style={{ cursor: 'pointer' }}>
+                  <span className="topbar-dot" />
+                  {user.name.split(' ')[0]} · {ROLE_LABELS[user.role]}
+                </div>
+              </Link>
+            )}
+            {!user && (
+              <div className="topbar-badge">
+                <span className="topbar-dot" />
+                Visitante
+              </div>
+            )}
           </div>
         </header>
 

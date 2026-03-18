@@ -19,6 +19,7 @@ const kpisRouter = require('./routes/kpis');
 const testDrivesRouter = require('./routes/testDrives');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
+const notificationsRouter = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -77,6 +78,39 @@ app.use('/api/test-drives', auth, testDrivesRouter);
 
 // Users: dueno only (enforced inside router)
 app.use('/api/users', usersRouter);
+
+// Notifications: vendedor+ only
+app.use('/api/notifications', auth, requireRole('vendedor', 'dueno'), notificationsRouter);
+
+// Config endpoint (read-only, public)
+app.get('/api/config', async (req, res) => {
+  const pool = require('./db');
+  try {
+    const result = await pool.query('SELECT key, value FROM app_config');
+    const config = {};
+    result.rows.forEach(r => { config[r.key] = r.value; });
+    res.json({ success: true, data: config });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Config update: dueno only
+app.put('/api/config', auth, requireRole('dueno'), async (req, res) => {
+  const pool = require('./db');
+  try {
+    const updates = req.body; // { key: value, ... }
+    for (const [key, value] of Object.entries(updates)) {
+      await pool.query(
+        'INSERT INTO app_config (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()',
+        [key, String(value)]
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

@@ -207,3 +207,75 @@ export function updateUser(id, data) {
 export function deleteUser(id) {
   return request(`/users/${id}`, { method: 'DELETE' });
 }
+
+// Vehicle stats
+export function getVehicleStats(id) {
+  return request(`/vehicles/${id}/stats`);
+}
+
+// Bulk status change
+export function bulkUpdateVehicleStatus(ids, status) {
+  return request('/vehicles/bulk-status', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, status }),
+  });
+}
+
+// CSV import
+export function importVehiclesCSV(formData) {
+  return request('/vehicles/import-csv', { method: 'POST', body: formData });
+}
+
+// Profile
+export function updateProfile(data) {
+  return request('/auth/profile', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+// Password reset
+export function forgotPassword(email) {
+  return request('/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword(token, password) {
+  return request('/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, password }),
+  });
+}
+
+// Notifications
+export function getNotifications() {
+  return request('/notifications');
+}
+
+export function markAllNotificationsRead() {
+  return request('/notifications/read-all', { method: 'PUT' });
+}
+
+export function markNotificationRead(id) {
+  return request(`/notifications/${id}/read`, { method: 'PUT' });
+}
+
+// App config
+export function getAppConfig() {
+  const base = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
+  return fetch(`${base}/config`).then(r => r.json());
+}
+
+export function updateAppConfig(data) {
+  return request('/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}

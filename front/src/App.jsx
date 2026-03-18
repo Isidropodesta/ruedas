@@ -33,6 +33,10 @@ import PublicVehicle from './pages/PublicVehicle'
 import Users from './pages/Users'
 import Favorites from './pages/Favorites'
 import MyTestDrives from './pages/MyTestDrives'
+import Profile from './pages/Profile'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
+import TestDrivesCalendar from './pages/TestDrivesCalendar'
 
 // Requires authentication; optionally restricts by role
 function PrivateRoute({ children, roles }) {
@@ -57,6 +61,8 @@ function AppRoutes() {
       {/* Public standalone routes */}
       <Route path="/public/vehicles/:id" element={<PublicVehicle />} />
       <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
+      <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Routes with sidebar Layout */}
       <Route element={<Layout />}>
@@ -68,6 +74,7 @@ function AppRoutes() {
 
         {/* Authenticated — any role */}
         <Route path="/my-test-drives" element={<PrivateRoute><MyTestDrives /></PrivateRoute>} />
+        <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
 
         {/* Vendedor + Dueño only */}
         <Route path="/" element={<PrivateRoute roles={['vendedor', 'dueno']}><Dashboard /></PrivateRoute>} />
@@ -76,6 +83,7 @@ function AppRoutes() {
         <Route path="/sellers/new" element={<PrivateRoute roles={['vendedor', 'dueno']}><AddSeller /></PrivateRoute>} />
         <Route path="/sellers/:id" element={<PrivateRoute roles={['vendedor', 'dueno']}><SellerDetail /></PrivateRoute>} />
         <Route path="/test-drives" element={<PrivateRoute roles={['vendedor', 'dueno']}><TestDrives /></PrivateRoute>} />
+        <Route path="/calendar" element={<PrivateRoute roles={['vendedor', 'dueno']}><TestDrivesCalendar /></PrivateRoute>} />
 
         {/* Dueño only */}
         <Route path="/users" element={<PrivateRoute roles={['dueno']}><Users /></PrivateRoute>} />

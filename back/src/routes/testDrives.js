@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const { requireRole } = require('../middleware/auth');
+const { sendMail, testDriveRequestedHtml, testDriveConfirmedHtml } = require('../email');
+const { createNotification } = require('./notifications');
 
 // GET /api/test-drives - list all upcoming/pending test drives sorted by scheduled_at
 router.get('/', async (req, res) => {
@@ -100,7 +102,24 @@ router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
       return res.status(404).json({ success: false, error: 'Test drive not found' });
     }
 
-    res.json({ success: true, data: result.rows[0] });
+    const td = result.rows[0];
+
+    // Si cambió el estado, enviar email al cliente (fire & forget)
+    if (status && status !== 'pending' && td.client_email) {
+      const vRes = await pool.query('SELECT brand, model, year FROM vehicles WHERE id = $1', [td.vehicle_id]);
+      const v = vRes.rows[0] || {};
+      sendMail({
+        to: td.client_email,
+        subject: `Tu test drive fue ${status === 'completed' ? 'completado' : 'cancelado'} — ${v.brand} ${v.model}`,
+        html: testDriveConfirmedHtml({
+          clientName: td.client_name,
+          vehicleBrand: v.brand, vehicleModel: v.model, vehicleYear: v.year,
+          scheduledAt: td.scheduled_at, status,
+        }),
+      });
+    }
+
+    res.json({ success: true, data: td });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });

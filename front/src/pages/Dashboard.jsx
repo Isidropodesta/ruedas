@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell, Legend,
   BarChart, Bar,
 } from 'recharts'
-import { getGeneralKpis, getMonthlyKpis, getSellerKpis, getVehicles } from '../api'
+import { getGeneralKpis, getMonthlyKpis, getSellerKpis, getVehicles, getAdvancedKpis } from '../api'
 import KpiCard from '../components/KpiCard'
 
 function formatCurrency(n) {
@@ -382,21 +382,30 @@ function VehicleDonut({ vehicles }) {
   )
 }
 
+const BASE_URL = import.meta.env.VITE_API_URL || ''
+function getPhotoSrc(url) {
+  if (!url) return null
+  if (url.startsWith('http')) return url
+  return BASE_URL + url
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [general, setGeneral] = useState(null)
   const [monthly, setMonthly] = useState([])
   const [sellers, setSellers] = useState([])
   const [vehicles, setVehicles] = useState([])
+  const [advanced, setAdvanced] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([getGeneralKpis(), getMonthlyKpis(), getSellerKpis(), getVehicles()])
-      .then(([g, m, s, v]) => {
+    Promise.all([getGeneralKpis(), getMonthlyKpis(), getSellerKpis(), getVehicles(), getAdvancedKpis()])
+      .then(([g, m, s, v, adv]) => {
         setGeneral(g.data)
         setMonthly(m.data)
         setSellers(s.data)
         setVehicles(Array.isArray(v.data) ? v.data : [])
+        setAdvanced(adv.data || null)
       })
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -408,6 +417,17 @@ export default function Dashboard() {
   const recentVehicles = [...vehicles]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 5)
+
+  // Stock age alert: available vehicles older than 60 days
+  const ALERT_DAYS = 60
+  const now = new Date()
+  const oldStock = vehicles
+    .filter(v => v.status === 'available')
+    .filter(v => {
+      const days = Math.floor((now - new Date(v.created_at)) / (1000 * 60 * 60 * 24))
+      return days >= ALERT_DAYS
+    })
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
   const getStatusClass = (status) => {
     if (status === 'available') return 'available'
@@ -479,6 +499,14 @@ export default function Dashboard() {
             color="gold"
             trend={8}
             isCurrency
+          />
+          <KpiCard
+            icon="⏱️"
+            label="DÍAS PROM. VENTA"
+            value={advanced?.avg_days_to_sell ?? 0}
+            sub="Días en stock antes de venderse"
+            color="blue"
+            trend={0}
           />
         </div>
 
@@ -572,6 +600,101 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* ── Stale Vehicles ────────────────────────────────── */}
+        {advanced?.stale_vehicles?.length > 0 && (
+          <div className="card" style={{ marginBottom: 24 }}>
+            <div className="card-header" style={{ paddingBottom: 16 }}>
+              <span className="card-title" style={{ color: 'var(--danger)' }}>Vehículos Sin Movimiento</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Disponibles hace más de 30 días</span>
+            </div>
+            <div className="card-body" style={{ padding: 0 }}>
+              {advanced.stale_vehicles.map(v => (
+                <Link
+                  key={v.id}
+                  to={`/vehicles/${v.id}`}
+                  className="activity-row"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 44, height: 36, borderRadius: 6, flexShrink: 0,
+                      background: 'var(--bg)', overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                    }}>
+                      {v.photo ? (
+                        <img src={getPhotoSrc(v.photo)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : '🚗'}
+                    </div>
+                    <div className="activity-info">
+                      <div className="activity-name">{v.brand} {v.model} {v.year}</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--danger)' }}>
+                      {v.days_in_stock} días
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>en stock</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Stock por Marca ────────────────────────────────── */}
+        {advanced?.stock_by_brand?.length > 0 && (
+          <div className="chart-wrapper" style={{ marginBottom: 24 }}>
+            <div style={{ marginBottom: 20 }}>
+              <div className="chart-title">Stock por Marca</div>
+              <div className="chart-subtitle">Vehículos disponibles por marca</div>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart
+                data={advanced.stock_by_brand.slice(0, 10).map(b => ({ name: b.brand, count: parseInt(b.count) }))}
+                margin={{ top: 4, right: 16, left: -10, bottom: 0 }}
+                barCategoryGap="30%"
+              >
+                <CartesianGrid strokeDasharray="0" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  stroke="transparent"
+                  tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  stroke="transparent"
+                  tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={30}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null
+                    return (
+                      <div className="chart-tooltip">
+                        <div className="chart-tooltip-title">{label}</div>
+                        <div className="chart-tooltip-row">
+                          <span className="chart-tooltip-dot" style={{ background: '#e8a040' }} />
+                          <span>Disponibles: </span><strong>{payload[0].value}</strong>
+                        </div>
+                      </div>
+                    )
+                  }}
+                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                />
+                <Bar dataKey="count" fill="#e8a040" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                  {advanced.stock_by_brand.slice(0, 10).map((entry, i) => (
+                    <Cell key={i} fill={i === 0 ? '#e8a040' : '#e8a04090'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
         {/* ── Seller Comparison Chart ───────────────────────── */}
         <div className="chart-wrapper" style={{ marginBottom: 24 }}>
@@ -760,6 +883,47 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* ── Alertas de Stock Viejo ─────────────────────────── */}
+        {oldStock.length > 0 && (
+          <div className="card" style={{ borderColor: 'rgba(232,160,64,0.3)', marginBottom: 24 }}>
+            <div className="card-header" style={{ paddingBottom: 16 }}>
+              <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                Stock sin movimiento ({oldStock.length} vehículo{oldStock.length !== 1 ? 's' : ''})
+              </span>
+              <span style={{ fontSize: 12, color: 'rgba(232,160,64,0.9)', fontWeight: 600 }}>+{ALERT_DAYS} días disponible</span>
+            </div>
+            <div className="card-body" style={{ padding: 0 }}>
+              {oldStock.slice(0, 5).map(v => {
+                const days = Math.floor((now - new Date(v.created_at)) / (1000 * 60 * 60 * 24))
+                return (
+                  <Link key={v.id} to={`/vehicles/${v.id}`} className="activity-row" style={{ borderLeft: '3px solid rgba(232,160,64,0.5)' }}>
+                    <div className="activity-info">
+                      <div className="activity-name">{v.brand} {v.model} {v.year ? `(${v.year})` : ''}</div>
+                      <div className="activity-meta">
+                        <span className={`tag tag-${v.type}`}>{DONUT_LABELS[v.type] || v.type || '—'}</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      {v.price && (
+                        <div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 14, marginBottom: 2 }}>
+                          {formatCurrency(v.price)}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: 'rgba(232,160,64,0.85)', fontWeight: 600 }}>{days} días en stock</div>
+                    </div>
+                  </Link>
+                )
+              })}
+              {oldStock.length > 5 && (
+                <div style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                  +{oldStock.length - 5} más — <Link to="/vehicles?status=available" style={{ color: 'rgba(232,160,64,0.85)' }}>ver todos</Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Actividad Reciente ─────────────────────────────── */}
         <div className="card">

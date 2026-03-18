@@ -3,6 +3,9 @@ const router = express.Router();
 const path = require('path');
 const pool = require('../db');
 const { requireRole } = require('../middleware/auth');
+const { uploadPhoto } = require('../cloudinary');
+const { sendMail, testDriveRequestedHtml } = require('../email');
+const { createNotification } = require('./notifications');
 
 const multer = require('multer');
 const upload = multer({ dest: path.join(__dirname, '../../uploads') });
@@ -82,9 +85,118 @@ router.get('/:id', async (req, res) => {
     const vehicle = vehicleResult.rows[0];
     vehicle.photos = photosResult.rows;
 
+    // Registrar vista (fire & forget)
+    pool.query('INSERT INTO vehicle_views (vehicle_id) VALUES ($1)', [id]).catch(() => {});
+
     res.json({ success: true, data: vehicle });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/vehicles/:id/stats — vistas totales y por período
+router.get('/:id/stats', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [total, last7, last30, testDrives] = await Promise.all([
+      pool.query('SELECT COUNT(*) FROM vehicle_views WHERE vehicle_id = $1', [id]),
+      pool.query("SELECT COUNT(*) FROM vehicle_views WHERE vehicle_id = $1 AND viewed_at > NOW() - INTERVAL '7 days'", [id]),
+      pool.query("SELECT COUNT(*) FROM vehicle_views WHERE vehicle_id = $1 AND viewed_at > NOW() - INTERVAL '30 days'", [id]),
+      pool.query('SELECT COUNT(*) FROM test_drives WHERE vehicle_id = $1', [id]),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        views_total: parseInt(total.rows[0].count),
+        views_7d: parseInt(last7.rows[0].count),
+        views_30d: parseInt(last30.rows[0].count),
+        test_drives_total: parseInt(testDrives.rows[0].count),
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/vehicles/bulk-status — cambio masivo de estado
+router.put('/bulk-status', requireRole('vendedor', 'dueno'), async (req, res) => {
+  try {
+    const { ids, status } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'ids requeridos' });
+    }
+    if (!['available', 'withdrawn'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Solo se puede cambiar a available o withdrawn en lote' });
+    }
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(',');
+    const query = status === 'withdrawn'
+      ? `UPDATE vehicles SET status = $1, withdrawn_at = NOW(), withdrawal_reason = 'Retiro masivo'
+         WHERE id IN (${placeholders}) AND status != 'sold' RETURNING id`
+      : `UPDATE vehicles SET status = $1, withdrawn_at = NULL, withdrawal_reason = NULL
+         WHERE id IN (${placeholders}) RETURNING id`;
+    const result = await pool.query(query, [status, ...ids]);
+    res.json({ success: true, data: { updated: result.rowCount } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/vehicles/import-csv — importar vehículos desde CSV
+router.post('/import-csv', requireRole('vendedor', 'dueno'), upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'Archivo CSV requerido' });
+    const fs = require('fs');
+    const content = fs.readFileSync(req.file.path, 'utf-8');
+    fs.unlinkSync(req.file.path);
+
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return res.status(400).json({ success: false, error: 'CSV vacío o sin datos' });
+
+    // Header: brand,model,year,km,price_min,price_max,color,description,type
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+    const required = ['brand', 'model', 'year', 'type'];
+    const missing = required.filter(r => !headers.includes(r));
+    if (missing.length > 0) {
+      return res.status(400).json({ success: false, error: `Columnas faltantes: ${missing.join(', ')}` });
+    }
+
+    const results = { inserted: 0, errors: [] };
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+      const row = {};
+      headers.forEach((h, idx) => { row[h] = vals[idx] || ''; });
+
+      if (!row.brand || !row.model || !row.year || !row.type) {
+        results.errors.push(`Fila ${i + 1}: brand, model, year y type son requeridos`);
+        continue;
+      }
+      if (!['utility', 'road', 'luxury'].includes(row.type)) {
+        results.errors.push(`Fila ${i + 1}: type debe ser utility, road o luxury`);
+        continue;
+      }
+      try {
+        await pool.query(
+          `INSERT INTO vehicles (brand, model, year, km, price_min, price_max, color, description, type, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'available')`,
+          [
+            row.brand, row.model,
+            parseInt(row.year),
+            parseInt(row.km) || 0,
+            row.price_min ? parseFloat(row.price_min) : null,
+            row.price_max ? parseFloat(row.price_max) : null,
+            row.color || null,
+            row.description || null,
+            row.type,
+          ]
+        );
+        results.inserted++;
+      } catch (err) {
+        results.errors.push(`Fila ${i + 1}: ${err.message}`);
+      }
+    }
+    res.json({ success: true, data: results });
+  } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -135,7 +247,7 @@ router.post('/', requireRole('vendedor', 'dueno'), upload.array('photos'), async
 
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const url = `/uploads/${file.filename}`;
+        const url = await uploadPhoto(file.path);
         await client.query(
           'INSERT INTO vehicle_photos (vehicle_id, url) VALUES ($1, $2)',
           [vehicle.id, url]
@@ -371,6 +483,32 @@ router.post('/:id/test-drives', async (req, res) => {
        RETURNING *`,
       [id, client_name, client_phone || null, client_email || null, scheduled_at, notes || null, seller_id || null]
     );
+
+    // Obtener info del vehículo para email/notificación
+    const vRes = await pool.query('SELECT brand, model, year FROM vehicles WHERE id = $1', [id]);
+    const v = vRes.rows[0] || {};
+
+    // Notificación in-app (fire & forget)
+    createNotification({
+      type: 'test_drive',
+      title: `Nuevo test drive: ${client_name}`,
+      body: `${v.brand} ${v.model} ${v.year} — ${new Date(scheduled_at).toLocaleDateString('es-AR')}`,
+      link: `/vehicles/${id}`,
+    });
+
+    // Email al concesionario (fire & forget)
+    if (process.env.NOTIFICATION_EMAIL) {
+      sendMail({
+        to: process.env.NOTIFICATION_EMAIL,
+        subject: `Nuevo Test Drive — ${client_name} · ${v.brand} ${v.model}`,
+        html: testDriveRequestedHtml({
+          clientName: client_name, clientEmail: client_email,
+          clientPhone: client_phone, notes,
+          vehicleBrand: v.brand, vehicleModel: v.model, vehicleYear: v.year,
+          scheduledAt: scheduled_at,
+        }),
+      });
+    }
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {

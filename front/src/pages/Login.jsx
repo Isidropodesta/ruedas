@@ -161,6 +161,16 @@ export default function Login() {
             </button>
           </form>
 
+          {mode === 'login' && (
+            <div style={{ textAlign: 'center', marginTop: 14 }}>
+              <Link to="/forgot-password" style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
+          )}
           {mode === 'register' && (
             <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 16, marginBottom: 0 }}>
               Las cuentas nuevas se crean como <strong style={{ color: 'var(--text-soft)' }}>Cliente</strong>. El dueño puede cambiar tu rol.

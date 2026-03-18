@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { getVehicles } from '../api'
+import { getVehicles, bulkUpdateVehicleStatus, importVehiclesCSV } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { useFavorites } from '../context/FavoritesContext'
 import StatusBadge from '../components/StatusBadge'
@@ -93,6 +93,11 @@ export default function Vehicles() {
   const [loading, setLoading]         = useState(true)
   const [filters, setFilters]         = useState(EMPTY_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(true)
+  const [selected, setSelected]       = useState(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importResult, setImportResult]   = useState(null)
+  const csvInputRef = useRef(null)
 
   useEffect(() => {
     setLoading(true)
@@ -177,6 +182,46 @@ export default function Vehicles() {
 
   const canAdd = user && (user.role === 'vendedor' || user.role === 'dueno')
 
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const selectAll = () => setSelected(new Set(vehicles.map(v => v.id)))
+  const clearSelection = () => setSelected(new Set())
+
+  const handleBulkStatus = async (status) => {
+    if (selected.size === 0) return
+    if (!confirm(`¿Cambiar ${selected.size} vehículo(s) a "${status === 'available' ? 'Disponible' : 'Retirado'}"?`)) return
+    setBulkLoading(true)
+    try {
+      await bulkUpdateVehicleStatus([...selected], status)
+      const res = await getVehicles()
+      setAllVehicles(res.data || [])
+      setSelected(new Set())
+    } catch (err) { alert('Error: ' + err.message) }
+    finally { setBulkLoading(false) }
+  }
+
+  const handleCSVImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImportLoading(true)
+    setImportResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await importVehiclesCSV(fd)
+      setImportResult(res.data)
+      const refreshed = await getVehicles()
+      setAllVehicles(refreshed.data || [])
+    } catch (err) { setImportResult({ error: err.message }) }
+    finally { setImportLoading(false); e.target.value = '' }
+  }
+
   // For clients, total = only available vehicles
   const totalForUser = user?.role === 'cliente'
     ? allVehicles.filter(v => v.status === 'available').length
@@ -194,18 +239,90 @@ export default function Vehicles() {
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           {vehicles.length > 0 && (
-            <button
-              onClick={() => exportCSV(vehicles)}
-              className="btn btn-secondary btn-sm"
-            >
+            <button onClick={() => exportCSV(vehicles)} className="btn btn-secondary btn-sm">
               Exportar CSV
             </button>
           )}
           {canAdd && (
-            <Link to="/vehicles/new" className="btn btn-primary">+ Agregar Vehículo</Link>
+            <>
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv"
+                style={{ display: 'none' }}
+                onChange={handleCSVImport}
+              />
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => csvInputRef.current?.click()}
+                disabled={importLoading}
+              >
+                {importLoading ? 'Importando...' : '📥 Importar CSV'}
+              </button>
+              <Link to="/vehicles/new" className="btn btn-primary">+ Agregar Vehículo</Link>
+            </>
           )}
         </div>
       </div>
+
+      {/* CSV import result */}
+      {importResult && (
+        <div className={`alert ${importResult.error ? 'alert-danger' : 'alert-success'}`} style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {importResult.error
+            ? `Error: ${importResult.error}`
+            : `✅ ${importResult.inserted} vehículo(s) importados${importResult.errors?.length ? ` · ${importResult.errors.length} error(es)` : ''}`
+          }
+          <button onClick={() => setImportResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16 }}>✕</button>
+        </div>
+      )}
+
+      {/* Bulk actions toolbar */}
+      {canAdd && selected.size > 0 && (
+        <div style={{
+          position: 'sticky', top: 0, zIndex: 50,
+          background: 'var(--accent)', borderRadius: 10,
+          padding: '10px 20px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          boxShadow: '0 4px 20px rgba(74,232,208,0.3)',
+        }}>
+          <span style={{ fontWeight: 700, color: '#000', fontSize: 14 }}>
+            {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}
+          </span>
+          <button
+            className="btn btn-sm"
+            style={{ background: 'rgba(0,0,0,0.2)', color: '#000', border: 'none' }}
+            onClick={() => handleBulkStatus('available')}
+            disabled={bulkLoading}
+          >Marcar Disponibles</button>
+          <button
+            className="btn btn-sm"
+            style={{ background: 'rgba(0,0,0,0.2)', color: '#000', border: 'none' }}
+            onClick={() => handleBulkStatus('withdrawn')}
+            disabled={bulkLoading}
+          >Retirar del Stock</button>
+          <button
+            className="btn btn-sm"
+            style={{ background: 'transparent', color: '#000', border: '1px solid rgba(0,0,0,0.3)', marginLeft: 'auto' }}
+            onClick={clearSelection}
+          >✕ Cancelar</button>
+        </div>
+      )}
+
+      {/* Select all row — only for managers */}
+      {canAdd && vehicles.length > 0 && !loading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, fontSize: 13 }}>
+          <button
+            onClick={selected.size === vehicles.length ? clearSelection : selectAll}
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: 11 }}
+          >
+            {selected.size === vehicles.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+          </button>
+          {selected.size > 0 && (
+            <span style={{ color: 'var(--text-muted)' }}>{selected.size} de {vehicles.length} seleccionados</span>
+          )}
+        </div>
+      )}
 
       {/* Filter panel */}
       <div className="card" style={{ marginBottom: 20, padding: '0' }}>
@@ -389,7 +506,20 @@ export default function Vehicles() {
       ) : (
         <div className="vehicles-grid">
           {vehicles.map(v => (
-            <div key={v.id} style={{ position: 'relative' }}>
+            <div key={v.id} style={{ position: 'relative', outline: selected.has(v.id) ? '2px solid var(--accent)' : 'none', borderRadius: 12 }}>
+              {/* Checkbox for bulk actions — managers only */}
+              {canAdd && (
+                <input
+                  type="checkbox"
+                  checked={selected.has(v.id)}
+                  onChange={() => toggleSelect(v.id)}
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    position: 'absolute', top: 8, left: 8, zIndex: 10,
+                    width: 18, height: 18, cursor: 'pointer', accentColor: 'var(--accent)',
+                  }}
+                />
+              )}
               {/* Favorite button */}
               <button
                 onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFav(v.id) }}
