@@ -76,3 +76,42 @@ El front hace proxy a `/api` → `localhost:3001` via vite.config.js.
 - Las fotos en producción se guardan en `uploads/` localmente — pendiente migrar a S3 o Cloudinary
 - El backend en Render usa el free tier: se "duerme" tras 15 min de inactividad
 - No hay autenticación implementada todavía
+- `multer-storage-cloudinary` requiere `cloudinary@v1` — NO actualizar cloudinary a v2 o se rompe la instalación
+
+## Git — Flujo de trabajo (2 personas)
+
+### Ramas
+- `main` → producción (Vercel + Render)
+- `develop` → integración, se prueba acá antes de pasar a producción
+- `vichen` → rama de viche
+- `isidro` → rama del amigo (Isidro)
+
+### Flujo del día a día
+```bash
+# Antes de arrancar, traerse lo último
+git checkout vichen   # o isidro
+git pull origin develop
+
+# Trabajar, commitear, pushear
+git add .
+git commit -m "descripción"
+git push origin vichen
+
+# Cuando terminás algo → abrir Pull Request en GitHub: vichen → develop
+```
+
+### Para pasar a producción
+Pull Request de `develop` → `main` en GitHub.
+
+### Ver ramas del remoto
+```bash
+git fetch
+git branch -a
+```
+
+### npm install — importante
+Cada carpeta tiene su propio package.json. Siempre instalar por separado:
+```bash
+cd front && npm install
+cd back && npm install
+```
