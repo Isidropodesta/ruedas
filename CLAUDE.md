@@ -72,6 +72,23 @@ El front hace proxy a `/api` → `localhost:3001` via vite.config.js.
 - Fetch nativo para llamadas API (sin axios)
 - Queries SQL parametrizadas siempre (`$1, $2...`) — sin concatenación
 
+## Git — Flujo de ramas
+- `main` → producción (Vercel + Render)
+- `develop` → staging/integración, se prueba acá antes de pasar a main
+- `isidro` → rama de Isidro
+- `vichen` → rama de Vichen
+
+**Día a día:**
+```bash
+git pull origin develop        # traerse lo último antes de arrancar
+# ... codear ...
+git add .
+git commit -m "descripción"
+git push origin isidro         # (o vichen)
+```
+Luego abrir PR en GitHub: `isidro` → `develop` (o `vichen` → `develop`).
+Cuando develop está estable → PR `develop` → `main`.
+
 ## Notas importantes
 - Las fotos en producción se guardan en `uploads/` localmente — pendiente migrar a S3 o Cloudinary
 - El backend en Render usa el free tier: se "duerme" tras 15 min de inactividad
