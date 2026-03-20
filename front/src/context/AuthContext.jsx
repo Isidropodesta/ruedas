@@ -17,8 +17,9 @@ export function AuthProvider({ children }) {
       .then(data => {
         if (data.success) {
           const u = data.data
+          // If token is old and missing company_id, force re-login
+          if (!u.company_id) { localStorage.removeItem('token'); setToken(null); return }
           setUser(u)
-          // Store company info from user (joined in /auth/me)
           if (u.company_name) {
             setCompany({ id: u.company_id, name: u.company_name, slug: u.company_slug, logo_url: u.company_logo })
           }
