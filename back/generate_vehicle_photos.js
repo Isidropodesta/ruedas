@@ -1,13 +1,13 @@
 /**
- * Script one-shot: genera 6 fotos por vehículo usando Gemini Imagen 3.
+ * Script one-shot: genera 6 fotos por vehículo usando FLUX.1-schnell (Hugging Face).
  *
  * Uso:
- *   node generate_vehicle_photos.js
- *   node generate_vehicle_photos.js --dry-run   (muestra qué generaría sin llamar la API)
- *   node generate_vehicle_photos.js --id 5       (solo el vehículo con id=5)
+ *   node generate_vehicle_photos.js                  → todos los autos
+ *   node generate_vehicle_photos.js --id 5           → solo el auto con id=5
+ *   node generate_vehicle_photos.js --dry-run        → muestra qué generaría sin llamar la API
  *
  * Requiere en back/.env:
- *   GEMINI_API_KEY=tu_clave_aqui
+ *   HF_API_KEY=hf_xxxxxxxxxxxxxxxxxxxxx
  */
 
 require('dotenv').config();
@@ -17,16 +17,23 @@ const pool = require('./src/db');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) {
-  console.error('\n❌ ERROR: GEMINI_API_KEY no encontrado en .env\n');
+const HF_API_KEY = process.env.HF_API_KEY;
+if (!HF_API_KEY) {
+  console.error('\n❌ ERROR: HF_API_KEY no encontrado en .env');
+  console.error('   Creá una cuenta gratis en https://huggingface.co y generá un token en:');
+  console.error('   https://huggingface.co/settings/tokens\n');
   process.exit(1);
 }
 
 const DRY_RUN    = process.argv.includes('--dry-run');
-const ID_ARG     = (() => { const i = process.argv.indexOf('--id'); return i !== -1 ? parseInt(process.argv[i+1]) : null; })();
+const ID_ARG     = (() => { const i = process.argv.indexOf('--id'); return i !== -1 ? parseInt(process.argv[i + 1]) : null; })();
 const PUBLIC_DIR = path.join(__dirname, '../front/public/autos');
-const DELAY_MS   = 800; // entre llamadas para no pisar rate limit
+
+const HF_MODEL   = 'black-forest-labs/FLUX.1-schnell';
+const HF_URL     = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+const DELAY_MS   = 1200;   // pausa entre llamadas para no quemar rate limit
+const MAX_RETRIES = 3;     // reintentos si el modelo está cargando (503)
+const RETRY_WAIT  = 25000; // espera en ms cuando HF devuelve 503 "model loading"
 
 // ── Fotos a generar ───────────────────────────────────────────────────────────
 
@@ -63,116 +70,129 @@ const PHOTOS = [
   },
 ];
 
+// Negative prompt compartido — le decimos al modelo qué evitar
+const NEGATIVE_PROMPT = 'blurry, low quality, watermark, text, logo, people, pedestrians, deformed, ugly, bad anatomy, extra cars, multiple cars';
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Slug seguro para rutas de archivo: minúsculas, espacios → guiones, sin chars especiales
 function slug(str) {
   return String(str)
     .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '-')
     .replace(/[^a-z0-9\-]/g, '');
 }
 
-// Genera una imagen via Gemini Imagen 3 REST API, retorna Buffer
-async function callGeminiImagen(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-004:predict?key=${GEMINI_API_KEY}`;
-
-  const response = await fetch(url, {
+// Llama HF Inference API y retorna Buffer con la imagen
+async function callHuggingFace(prompt, attempt = 1) {
+  const response = await fetch(HF_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Authorization': `Bearer ${HF_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
-      instances: [{ prompt }],
+      inputs: prompt,
       parameters: {
-        sampleCount: 1,
-        aspectRatio: '16:9',
-        safetySetting: 'block_only_high',
-        personGeneration: 'dont_allow',
+        negative_prompt: NEGATIVE_PROMPT,
+        width: 1024,
+        height: 576,
+        num_inference_steps: 4,   // FLUX.1-schnell es óptimo con 4 pasos
+        guidance_scale: 0.0,      // schnell usa guidance 0
       },
     }),
   });
 
-  const data = await response.json();
+  // 503 → modelo todavía cargando, esperar y reintentar
+  if (response.status === 503 && attempt <= MAX_RETRIES) {
+    const wait = RETRY_WAIT + (attempt - 1) * 10000;
+    process.stdout.write(`\n   ⏳ Modelo cargando, esperando ${wait / 1000}s (intento ${attempt}/${MAX_RETRIES})... `);
+    await new Promise(r => setTimeout(r, wait));
+    return callHuggingFace(prompt, attempt + 1);
+  }
 
   if (!response.ok) {
-    const msg = data?.error?.message || JSON.stringify(data);
-    throw new Error(`API error ${response.status}: ${msg}`);
+    let errMsg = `HTTP ${response.status}`;
+    try {
+      const errData = await response.json();
+      errMsg = errData?.error || errData?.message || JSON.stringify(errData).slice(0, 150);
+    } catch (_) {}
+    throw new Error(errMsg);
   }
 
-  const prediction = data?.predictions?.[0];
-  if (!prediction?.bytesBase64Encoded) {
-    throw new Error('Respuesta sin imagen: ' + JSON.stringify(data));
-  }
-
-  return Buffer.from(prediction.bytesBase64Encoded, 'base64');
+  // HF devuelve la imagen directamente como binario
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
-// Crea un JPEG placeholder gris con texto (sin dependencias externas)
-// Usa un SVG embebido como fallback visual
-function createPlaceholderSvg(brand, model, year, angleLabel) {
-  const svg = `<svg width="800" height="450" xmlns="http://www.w3.org/2000/svg">
-  <rect width="800" height="450" fill="#2a2a2a"/>
-  <rect x="1" y="1" width="798" height="448" fill="none" stroke="#444" stroke-width="2"/>
-  <text x="400" y="160" font-family="Arial, sans-serif" font-size="64" fill="#555" text-anchor="middle">🚗</text>
-  <text x="400" y="240" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#888" text-anchor="middle">${brand} ${model}</text>
-  <text x="400" y="275" font-family="Arial, sans-serif" font-size="16" fill="#666" text-anchor="middle">${year}</text>
-  <text x="400" y="310" font-family="Arial, sans-serif" font-size="14" fill="#555" text-anchor="middle">${angleLabel}</text>
-  <text x="400" y="430" font-family="Arial, sans-serif" font-size="11" fill="#444" text-anchor="middle">Foto no disponible — generada con IA</text>
-</svg>`;
-  return Buffer.from(svg, 'utf-8');
+// Placeholder SVG gris con info del auto y ángulo
+function createPlaceholderSvg(brand, model, year, angleFile) {
+  const angle = angleFile.replace('.jpg', '').replace(/-/g, ' ');
+  return Buffer.from(
+    `<svg width="800" height="450" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="450" fill="#1e1e1e"/>
+  <rect x="2" y="2" width="796" height="446" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="400" y="165" font-family="Arial" font-size="72" fill="#444" text-anchor="middle">🚗</text>
+  <text x="400" y="245" font-family="Arial" font-size="24" font-weight="bold" fill="#666" text-anchor="middle">${brand} ${model}</text>
+  <text x="400" y="278" font-family="Arial" font-size="16" fill="#555" text-anchor="middle">${year}</text>
+  <text x="400" y="310" font-family="Arial" font-size="14" fill="#444" text-anchor="middle">${angle}</text>
+  <text x="400" y="435" font-family="Arial" font-size="11" fill="#333" text-anchor="middle">Imagen no disponible</text>
+</svg>`,
+    'utf-8'
+  );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  let query = 'SELECT id, brand, model, year, color FROM vehicles ORDER BY id';
-  const params = [];
-  if (ID_ARG) {
-    query = 'SELECT id, brand, model, year, color FROM vehicles WHERE id = $1';
-    params.push(ID_ARG);
-  }
+  const query  = ID_ARG
+    ? 'SELECT id, brand, model, year, color FROM vehicles WHERE id = $1 ORDER BY id'
+    : 'SELECT id, brand, model, year, color FROM vehicles ORDER BY id';
+  const params = ID_ARG ? [ID_ARG] : [];
 
   const { rows: vehicles } = await pool.query(query, params);
 
   if (vehicles.length === 0) {
-    console.log('No se encontraron vehículos.');
+    console.log('\nNo se encontraron vehículos.\n');
     await pool.end();
     return;
   }
 
-  console.log(`\n🚗 Vehículos a procesar: ${vehicles.length}`);
-  if (DRY_RUN) console.log('   [DRY-RUN activo — no se llamará la API ni se escribirán archivos]\n');
-  else console.log(`   Directorio destino: ${PUBLIC_DIR}\n`);
+  const totalImages = vehicles.length * PHOTOS.length;
+  console.log(`\n🚗 Vehículos: ${vehicles.length}  |  Imágenes máximas: ${totalImages}`);
+  console.log(`   Modelo: ${HF_MODEL}`);
+  if (DRY_RUN) console.log('   [DRY-RUN — no se llamará la API]\n');
+  else         console.log(`   Destino: ${PUBLIC_DIR}\n`);
 
-  let generated = 0;
-  let skipped   = 0;
-  let errors    = 0;
+  let generated    = 0;
+  let skipped      = 0;
+  let errors       = 0;
   let placeholders = 0;
 
   for (const v of vehicles) {
     const brandSlug = slug(v.brand);
     const modelSlug = slug(v.model);
     const dir       = path.join(PUBLIC_DIR, brandSlug, modelSlug, String(v.year));
+    const color     = v.color || 'white';
 
-    console.log(`\n📦 ${v.brand} ${v.model} ${v.year} (${v.color || 'sin color'}) — id:${v.id}`);
+    console.log(`\n📦 ${v.brand} ${v.model} ${v.year} — ${color} (id:${v.id})`);
 
     if (!DRY_RUN) fs.mkdirSync(dir, { recursive: true });
 
     for (const photo of PHOTOS) {
       const filePath   = path.join(dir, photo.file);
       const relUrl     = `/autos/${brandSlug}/${modelSlug}/${v.year}/${photo.file}`;
-      const promptText = photo.prompt(v.year, v.brand, v.model, v.color || 'white');
+      const promptText = photo.prompt(v.year, v.brand, v.model, color);
 
-      // Verificar si ya existe en disco
       if (!DRY_RUN && fs.existsSync(filePath)) {
-        console.log(`   ⏭  ${photo.file} ya existe, saltando`);
+        console.log(`   ⏭  ${photo.file} — ya existe`);
         skipped++;
         continue;
       }
 
       if (DRY_RUN) {
         console.log(`   🔍 [dry] ${photo.file}`);
-        console.log(`          prompt: "${promptText.slice(0, 80)}..."`);
+        console.log(`          "${promptText}"`);
         continue;
       }
 
@@ -180,64 +200,57 @@ async function main() {
 
       let saved = false;
       try {
-        const imgBuffer = await callGeminiImagen(promptText);
+        const imgBuffer = await callHuggingFace(promptText);
         fs.writeFileSync(filePath, imgBuffer);
         console.log('✅');
         generated++;
         saved = true;
       } catch (err) {
-        console.log(`❌ ${err.message}`);
+        console.log(`❌  ${err.message}`);
         errors++;
 
-        // Guardar placeholder SVG (.svg en vez de .jpg para que no rompa nada)
-        const placeholderPath = filePath.replace('.jpg', '.svg');
+        // Guardar placeholder SVG como fallback
         try {
-          const angleName = photo.file.replace('.jpg', '').replace('-', ' ');
-          const svgBuf = createPlaceholderSvg(v.brand, v.model, v.year, angleName);
-          fs.writeFileSync(placeholderPath, svgBuf);
-          console.log(`   📋 Placeholder guardado: ${photo.file.replace('.jpg', '.svg')}`);
+          const svgPath = filePath.replace('.jpg', '.svg');
+          fs.writeFileSync(svgPath, createPlaceholderSvg(v.brand, v.model, v.year, photo.file));
           placeholders++;
         } catch (_) {}
       }
 
-      // Sincronizar con vehicle_photos si se generó la imagen
+      // Registrar en vehicle_photos si se generó correctamente
       if (saved) {
         try {
-          // Verificar si ya existe este URL en vehicle_photos
-          const exists = await pool.query(
+          const { rows } = await pool.query(
             'SELECT id FROM vehicle_photos WHERE vehicle_id = $1 AND url = $2',
             [v.id, relUrl]
           );
-          if (exists.rows.length === 0) {
+          if (rows.length === 0) {
             await pool.query(
               'INSERT INTO vehicle_photos (vehicle_id, url) VALUES ($1, $2)',
               [v.id, relUrl]
             );
           }
         } catch (dbErr) {
-          console.log(`   ⚠  DB insert fallido para ${photo.file}: ${dbErr.message}`);
+          console.log(`   ⚠  DB insert fallido: ${dbErr.message}`);
         }
       }
 
-      // Esperar entre llamadas para evitar rate limit
       await new Promise(r => setTimeout(r, DELAY_MS));
     }
   }
 
-  if (!DRY_RUN) {
-    console.log(`\n${'─'.repeat(50)}`);
-    console.log(`✅ Generadas:     ${generated}`);
-    console.log(`⏭  Saltadas:      ${skipped}`);
-    console.log(`📋 Placeholders:  ${placeholders}`);
-    console.log(`❌ Errores:       ${errors}`);
-    console.log(`${'─'.repeat(50)}\n`);
+  console.log(`\n${'─'.repeat(52)}`);
+  console.log(`✅ Generadas:     ${generated}`);
+  console.log(`⏭  Saltadas:      ${skipped}`);
+  console.log(`📋 Placeholders:  ${placeholders}`);
+  console.log(`❌ Errores:       ${errors}`);
+  console.log(`${'─'.repeat(52)}\n`);
 
-    if (generated > 0) {
-      console.log('💡 Próximos pasos:');
-      console.log('   1. git add front/public/autos');
-      console.log('   2. git commit -m "Add generated vehicle photos"');
-      console.log('   3. git push origin main\n');
-    }
+  if (generated > 0) {
+    console.log('💡 Próximos pasos:');
+    console.log('   cd .. && git add front/public/autos');
+    console.log('   git commit -m "Add generated vehicle photos"');
+    console.log('   git push origin main\n');
   }
 
   await pool.end();
