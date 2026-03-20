@@ -30,7 +30,7 @@ const ID_ARG     = (() => { const i = process.argv.indexOf('--id'); return i !==
 const PUBLIC_DIR = path.join(__dirname, '../front/public/autos');
 
 const HF_MODEL   = 'black-forest-labs/FLUX.1-schnell';
-const HF_URL     = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+const HF_URL     = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
 const DELAY_MS   = 1200;   // pausa entre llamadas para no quemar rate limit
 const MAX_RETRIES = 3;     // reintentos si el modelo está cargando (503)
 const RETRY_WAIT  = 25000; // espera en ms cuando HF devuelve 503 "model loading"
