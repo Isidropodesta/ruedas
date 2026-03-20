@@ -17,7 +17,7 @@ function renderMyTestDrives(role = 'cliente') {
   localStorage.setItem('token', 'tok')
   global.fetch = vi.fn().mockResolvedValue({
     ok: true,
-    json: () => Promise.resolve({ success: true, data: { id: 3, name: 'Juan', role, active: true } }),
+    json: () => Promise.resolve({ success: true, data: { id: 3, name: 'Juan', role, active: true, company_id: 1 } }),
   })
   return render(
     <MemoryRouter>

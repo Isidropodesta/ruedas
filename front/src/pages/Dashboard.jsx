@@ -529,6 +529,99 @@ export default function Dashboard() {
     return 'Retirado'
   }
 
+  // ── Vista Vendedor ────────────────────────────────────────────
+  if (isOwnView) {
+    const me = sellers[0] || {}
+    return (
+      <div className="page-content" style={{ padding: 0 }}>
+        <CyberGrid />
+        <div style={{ padding: '32px' }}>
+          <div className="page-header">
+            <div>
+              <h2>Mi Panel</h2>
+              <p>Tu rendimiento personal</p>
+            </div>
+            <Link to="/vehicles/new" className="btn btn-primary">+ Agregar Vehículo</Link>
+          </div>
+
+          {/* Stats personales */}
+          <div className="kpi-grid" style={{ marginBottom: 24 }}>
+            <KpiCard icon={<IconCheck />} label="VENDIDOS TOTAL"    value={me.vehicles_sold ?? 0}           sub="Histórico"           color="green" />
+            <KpiCard icon={<IconClock />} label="VENDIDOS ESTE MES" value={me.vehicles_sold_this_month ?? 0} sub="Mes actual"           color="blue" />
+            <KpiCard icon={<IconBox />}   label="VENDIDOS ESTE AÑO" value={me.vehicles_sold_this_year ?? 0}  sub="Año en curso"         color="blue" />
+            <KpiCard icon={<IconDollar />} label="FACTURACIÓN"      value={me.total_revenue ?? 0}            sub="Histórica"           color="gold" isCurrency />
+            <KpiCard icon={<IconReceipt />} label="TICKET PROMEDIO" value={me.avg_ticket ?? 0}               sub="Por vehículo vendido" color="gold" isCurrency />
+          </div>
+
+          {/* Stock sin movimiento */}
+          {oldStock.length > 0 && (
+            <div className="card" style={{ borderColor: 'rgba(232,160,64,0.3)', marginBottom: 24 }}>
+              <div className="card-header" style={{ paddingBottom: 16 }}>
+                <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>⚠️</span>
+                  Stock sin movimiento ({oldStock.length} vehículo{oldStock.length !== 1 ? 's' : ''})
+                </span>
+                <span style={{ fontSize: 12, color: 'rgba(232,160,64,0.9)', fontWeight: 600 }}>+{ALERT_DAYS} días disponible</span>
+              </div>
+              <div className="card-body" style={{ padding: 0 }}>
+                {oldStock.slice(0, 5).map(v => {
+                  const days = Math.floor((now - new Date(v.created_at)) / (1000 * 60 * 60 * 24))
+                  return (
+                    <Link key={v.id} to={`/vehicles/${v.id}`} className="activity-row" style={{ borderLeft: '3px solid rgba(232,160,64,0.5)' }}>
+                      <div className="activity-info">
+                        <div className="activity-name">{v.brand} {v.model} {v.year ? `(${v.year})` : ''}</div>
+                        <div className="activity-meta">
+                          <span className={`tag tag-${v.type}`}>{DONUT_LABELS[v.type] || v.type || '—'}</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {v.price && <div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 14, marginBottom: 2 }}>{formatCurrency(v.price)}</div>}
+                        <div style={{ fontSize: 11, color: 'rgba(232,160,64,0.85)', fontWeight: 600 }}>{days} días en stock</div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Actividad reciente */}
+          <div className="card">
+            <div className="card-header" style={{ paddingBottom: 16 }}>
+              <span className="card-title">Actividad Reciente</span>
+              <Link to="/vehicles" className="btn btn-secondary btn-sm">Ver todos</Link>
+            </div>
+            <div className="card-body" style={{ padding: 0 }}>
+              {recentVehicles.length === 0 ? (
+                <div className="empty-state"><p>No hay vehículos registrados aún.</p></div>
+              ) : (
+                recentVehicles.map(v => (
+                  <Link key={v.id} to={`/vehicles/${v.id}`} className="activity-row">
+                    <div className="activity-info">
+                      <div className="activity-name">{v.brand} {v.model} {v.year ? `(${v.year})` : ''}</div>
+                      <div className="activity-meta">
+                        <span className={`tag tag-${v.type}`}>{DONUT_LABELS[v.type] || v.type || '—'}</span>
+                        &nbsp;&nbsp;
+                        <span className={`status-badge ${getStatusClass(v.status)}`} style={{ fontSize: 10, padding: '1px 7px' }}>
+                          <span className="status-dot" />{getStatusLabel(v.status)}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      {v.price && <div style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 14, marginBottom: 2 }}>{formatCurrency(v.price)}</div>}
+                      <div className="activity-time">{timeAgo(v.created_at)}</div>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Vista Admin/Dueño ──────────────────────────────────────────
   return (
     <div className="page-content" style={{ padding: 0 }}>
       <CyberGrid />

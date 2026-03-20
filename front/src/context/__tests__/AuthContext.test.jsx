@@ -30,7 +30,7 @@ describe('AuthContext', () => {
     localStorage.setItem('token', 'valid-token')
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ success: true, data: { id: 1, name: 'Admin', role: 'dueno' } }),
+      json: () => Promise.resolve({ success: true, data: { id: 1, name: 'Admin', role: 'dueno', company_id: 1 } }),
     })
     render(<AuthProvider><AuthConsumer /></AuthProvider>)
     await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('Admin'))
