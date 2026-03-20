@@ -11,7 +11,8 @@ router.use(auth, requireRole('dueno'));
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, role, seller_id, active, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, name, email, role, seller_id, company_id, active, created_at FROM users WHERE company_id = $1 ORDER BY created_at DESC',
+      [req.user.company_id]
     );
     res.json({ success: true, data: result.rows });
   } catch (err) {
@@ -35,10 +36,10 @@ router.post('/', async (req, res) => {
     }
     const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users (name, email, password_hash, role, seller_id)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, email, role, seller_id, active, created_at`,
-      [name, email.toLowerCase(), hash, role, seller_id || null]
+      `INSERT INTO users (name, email, password_hash, role, seller_id, company_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, email, role, seller_id, company_id, active, created_at`,
+      [name, email.toLowerCase(), hash, role, seller_id || null, req.user.company_id]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
