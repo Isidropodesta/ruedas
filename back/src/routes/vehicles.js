@@ -89,10 +89,10 @@ router.get('/:id', optionalAuth, async (req, res) => {
     const isManager = req.user && ['vendedor', 'dueno'].includes(req.user.role);
 
     const vehicleResult = await pool.query(
-      `SELECT v.id, v.brand, v.model, v.year, v.type, v.status, v.price, v.km,
+      `SELECT v.id, v.brand, v.model, v.year, v.type, v.status, v.price_min, v.price_max, v.km,
               v.color, v.description, v.features, v.seller_id, v.sale_price,
-              v.sold_at, v.withdrawal_reason, v.created_at, v.updated_at,
-              ${isManager ? 'v.notes_internal,' : ''}
+              v.sold_at, v.withdrawn_at, v.withdrawal_reason, v.condition, v.financing_available,
+              v.created_at, ${isManager ? 'v.notes_internal,' : ''}
               s.name AS seller_name
        FROM vehicles v
        LEFT JOIN sellers s ON s.id = v.seller_id
