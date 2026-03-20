@@ -52,11 +52,11 @@ export default function Login() {
     }
   }
 
-  const DEMO_USERS = import.meta.env.DEV ? [
+  const DEMO_USERS = [
     { role: 'Dueño',    email: 'admin@ruedas.com',   password: 'admin123',    color: '#e8c840', desc: 'Acceso total + gestión de usuarios' },
     { role: 'Vendedor', email: 'carlos@ruedas.com',  password: 'vendedor123', color: '#a87ff5', desc: 'Dashboard, vehículos y turnos' },
     { role: 'Cliente',  email: 'juan@email.com',     password: 'cliente123',  color: '#4ae8d0', desc: 'Catálogo y comparador' },
-  ] : []
+  ]
 
   return (
     <div style={{
