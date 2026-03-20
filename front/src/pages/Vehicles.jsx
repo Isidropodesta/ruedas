@@ -12,7 +12,10 @@ const typeClass  = { utility: 'tag-utility', road: 'tag-road', luxury: 'tag-luxu
 
 function getPhotoSrc(url) {
   if (!url) return ''
-  if (typeof url === 'string' && !url.startsWith('http') && BASE_URL) return BASE_URL + url
+  if (typeof url !== 'string') return ''
+  if (url.startsWith('http')) return url
+  if (url.startsWith('/autos/')) return url  // static asset servido por Vercel/Vite
+  if (BASE_URL) return BASE_URL + url
   return url
 }
 
