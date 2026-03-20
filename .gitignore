@@ -5,3 +5,13 @@ dist/
 .DS_Store
 
 .vercel
+
+# Archivos temporales de debug/scripts
+fix_*.py
+fix_*.sh
+generate_output.py
+get_thumbs_final.py
+wikimedia_*.py
+wikimedia_*.json
+vehicle_photos.js
+direct_test.json
