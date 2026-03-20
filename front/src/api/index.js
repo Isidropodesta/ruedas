@@ -144,12 +144,16 @@ export function getGeneralKpis() {
   return request('/kpis/general');
 }
 
-export function getSellerKpis() {
-  return request('/kpis/sellers');
+export function getSellerKpis({ period, seller_id } = {}) {
+  const params = new URLSearchParams();
+  if (period && period !== 'all') params.append('period', period);
+  if (seller_id) params.append('seller_id', seller_id);
+  const qs = params.toString();
+  return request(`/kpis/sellers${qs ? '?' + qs : ''}`);
 }
 
-export function getMonthlyKpis() {
-  return request('/kpis/monthly');
+export function getMonthlyKpis(period) {
+  return request(`/kpis/monthly${period && period !== '1y' ? '?period=' + period : ''}`);
 }
 
 export function getAdvancedKpis() {

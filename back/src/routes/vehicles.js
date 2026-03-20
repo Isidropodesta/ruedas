@@ -22,7 +22,7 @@ const testDriveLimiter = rateLimit({
 // GET /api/vehicles - list with filters
 router.get('/', async (req, res) => {
   try {
-    const { status, type, brand, search } = req.query;
+    const { status, type, brand, search, condition, financing_available } = req.query;
     const conditions = [];
     const params = [];
     let idx = 1;
@@ -43,6 +43,13 @@ router.get('/', async (req, res) => {
       conditions.push(`(v.brand ILIKE $${idx} OR v.model ILIKE $${idx})`);
       params.push(`%${search}%`);
       idx++;
+    }
+    if (condition) {
+      conditions.push(`v.condition = $${idx++}`);
+      params.push(condition);
+    }
+    if (financing_available === 'true') {
+      conditions.push(`v.financing_available = true`);
     }
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';

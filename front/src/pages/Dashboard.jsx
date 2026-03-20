@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -45,7 +46,55 @@ const AVATAR_COLORS = [
   ['#1e1e2e', '#a87ff5'],
 ]
 
-const RANK_MEDALS = ['🥇', '🥈', '🥉']
+// SVG icons for KPI cards
+const IconCar = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 17H3a2 2 0 01-2-2v-4l2.5-6h13L19 11v4a2 2 0 01-2 2h-2"/>
+    <circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/>
+  </svg>
+)
+const IconCheck = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M8 12l3 3 5-5"/>
+  </svg>
+)
+const IconTag = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+    <circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/>
+  </svg>
+)
+const IconBox = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+  </svg>
+)
+const IconDollar = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M12 6v12M9 9.5c0-1.1.9-2 2-2h2a2 2 0 010 4h-2a2 2 0 000 4h2a2 2 0 002-2"/>
+  </svg>
+)
+const IconClock = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </svg>
+)
+const IconReceipt = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/>
+    <line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/>
+  </svg>
+)
+const IconCalPlus = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>
+  </svg>
+)
 
 // ── Animated background cyber grid ─────────────────────────
 function CyberGrid() {
@@ -389,17 +438,38 @@ function getPhotoSrc(url) {
   return BASE_URL + url
 }
 
+const PERIOD_OPTIONS = [
+  { value: '1m', label: '1M' },
+  { value: '3m', label: '3M' },
+  { value: '6m', label: '6M' },
+  { value: '1y', label: '1A' },
+  { value: 'all', label: 'Todo' },
+]
+
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [general, setGeneral] = useState(null)
   const [monthly, setMonthly] = useState([])
   const [sellers, setSellers] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [advanced, setAdvanced] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState('1y')
+  const [periodLoading, setPeriodLoading] = useState(false)
+
+  // Determine if this is a vendedor viewing only their own stats
+  const isOwnView = user?.role === 'vendedor' && user?.seller_id
 
   useEffect(() => {
-    Promise.all([getGeneralKpis(), getMonthlyKpis(), getSellerKpis(), getVehicles(), getAdvancedKpis()])
+    const sellerFilter = isOwnView ? { seller_id: user.seller_id } : {}
+    Promise.all([
+      getGeneralKpis(),
+      getMonthlyKpis(period),
+      getSellerKpis({ period, ...sellerFilter }),
+      getVehicles(),
+      getAdvancedKpis(),
+    ])
       .then(([g, m, s, v, adv]) => {
         setGeneral(g.data)
         setMonthly(m.data)
@@ -410,6 +480,24 @@ export default function Dashboard() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
+
+  const handlePeriodChange = useCallback(async (newPeriod) => {
+    setPeriod(newPeriod)
+    setPeriodLoading(true)
+    const sellerFilter = isOwnView ? { seller_id: user.seller_id } : {}
+    try {
+      const [m, s] = await Promise.all([
+        getMonthlyKpis(newPeriod),
+        getSellerKpis({ period: newPeriod, ...sellerFilter }),
+      ])
+      setMonthly(m.data)
+      setSellers(s.data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setPeriodLoading(false)
+    }
+  }, [isOwnView, user])
 
   if (loading) return <div className="loading">Cargando dashboard...</div>
 
@@ -460,60 +548,95 @@ export default function Dashboard() {
         {/* ── KPI Cards ─────────────────────────────────────── */}
         <div className="kpi-grid">
           <KpiCard
-            icon="🚗"
+            icon={<IconCar />}
             label="TOTAL VEHÍCULOS"
             value={general?.total_vehicles ?? 0}
             sub="En el sistema"
             color="blue"
-            trend={5}
           />
           <KpiCard
-            icon="✅"
+            icon={<IconCheck />}
             label="DISPONIBLES"
             value={general?.available ?? 0}
             sub="En stock"
             color="green"
-            trend={2}
           />
           <KpiCard
-            icon="🏷️"
+            icon={<IconTag />}
             label="VENDIDOS"
             value={general?.sold ?? 0}
             sub="Total histórico"
             color="red"
-            trend={-3}
           />
           <KpiCard
-            icon="📦"
+            icon={<IconBox />}
             label="RETIRADOS"
             value={general?.withdrawn ?? 0}
             sub="Fuera de stock"
             color="gray"
-            trend={0}
           />
           <KpiCard
-            icon="💰"
+            icon={<IconDollar />}
             label="FACTURACIÓN TOTAL"
             value={general?.total_revenue ?? 0}
             sub="Sobre ventas realizadas"
             color="gold"
-            trend={8}
             isCurrency
           />
           <KpiCard
-            icon="⏱️"
+            icon={<IconReceipt />}
+            label="TICKET PROMEDIO"
+            value={general?.avg_ticket ?? 0}
+            sub="Por vehículo vendido"
+            color="gold"
+            isCurrency
+          />
+          <KpiCard
+            icon={<IconCalPlus />}
+            label="INGRESADOS ESTE MES"
+            value={general?.vehicles_added_this_month ?? 0}
+            sub="Vehículos cargados en el mes"
+            color="blue"
+          />
+          <KpiCard
+            icon={<IconClock />}
             label="DÍAS PROM. VENTA"
             value={advanced?.avg_days_to_sell ?? 0}
             sub="Días en stock antes de venderse"
             color="blue"
-            trend={0}
           />
+        </div>
+
+        {/* ── Period Selector ────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginRight: 4 }}>Período:</span>
+          {PERIOD_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => handlePeriodChange(opt.value)}
+              disabled={periodLoading}
+              style={{
+                padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                border: `1px solid ${period === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                background: period === opt.value ? 'rgba(74,232,208,0.12)' : 'transparent',
+                color: period === opt.value ? 'var(--accent)' : 'var(--text-muted)',
+                cursor: periodLoading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s',
+                opacity: periodLoading ? 0.6 : 1,
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+          {periodLoading && (
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>Actualizando...</span>
+          )}
         </div>
 
         {/* ── Monthly Sales Chart ────────────────────────────── */}
         <div className="chart-wrapper" style={{ marginBottom: 24 }}>
           <div style={{ marginBottom: 20 }}>
-            <div className="chart-title">Ventas Mensuales (últimos 12 meses)</div>
+            <div className="chart-title">Ventas Mensuales</div>
             <div className="chart-subtitle">Unidades vendidas y facturación mensual</div>
           </div>
           <ChartParticles />
@@ -624,7 +747,12 @@ export default function Dashboard() {
                     }}>
                       {v.photo ? (
                         <img src={getPhotoSrc(v.photo)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : '🚗'}
+                      ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+                        <path d="M5 17H3a2 2 0 01-2-2v-4l2.5-6h13L19 11v4a2 2 0 01-2 2h-2"/>
+                        <circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/>
+                      </svg>
+                    )}
                     </div>
                     <div className="activity-info">
                       <div className="activity-name">{v.brand} {v.model} {v.year}</div>
@@ -774,6 +902,33 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ── Best Seller Highlight ──────────────────────────── */}
+        {!isOwnView && sellers.length > 0 && parseFloat(sellers[0].total_revenue) > 0 && (
+          <div className="card" style={{ marginBottom: 24, background: 'linear-gradient(135deg, rgba(232,160,64,0.08) 0%, rgba(232,160,64,0.03) 100%)', border: '1px solid rgba(232,160,64,0.25)' }}>
+            <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 20 }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
+                background: 'rgba(232,160,64,0.15)', border: '2px solid rgba(232,160,64,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#e8a040', fontSize: 22, fontWeight: 900,
+              }}>
+                {getInitials(sellers[0].name)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.5, color: '#e8a040', textTransform: 'uppercase', marginBottom: 4 }}>
+                  Mejor Vendedor
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 2 }}>{sellers[0].name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{sellers[0].vehicles_sold} ventas · ticket promedio {formatCurrency(sellers[0].avg_ticket)}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#e8a040' }}>{formatCurrency(sellers[0].total_revenue)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>facturación</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Top Sellers Table ──────────────────────────────── */}
         <div className="card" style={{ marginBottom: 24 }}>
           <div className="card-header" style={{ paddingBottom: 16 }}>
@@ -783,7 +938,6 @@ export default function Dashboard() {
           <div className="card-body" style={{ padding: 0 }}>
             {sellers.length === 0 ? (
               <div className="empty-state">
-                <span className="empty-icon">👤</span>
                 <p>No hay vendedores registrados.</p>
               </div>
             ) : (
@@ -811,7 +965,15 @@ export default function Dashboard() {
                           style={{ cursor: 'pointer' }}
                         >
                           <td className="rank-cell">
-                            {i < 3 ? RANK_MEDALS[i] : <span style={{ color: 'var(--text-soft)', fontSize: 13 }}>{i + 1}</span>}
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 22, height: 22, borderRadius: '50%', fontSize: 11, fontWeight: 800,
+                              background: i === 0 ? 'rgba(232,160,64,0.2)' : i === 1 ? 'rgba(180,180,180,0.15)' : i === 2 ? 'rgba(180,120,60,0.15)' : 'transparent',
+                              color: i === 0 ? '#e8a040' : i === 1 ? '#b0b0b0' : i === 2 ? '#b47840' : 'var(--text-muted)',
+                              border: i < 3 ? `1px solid currentColor` : 'none',
+                            }}>
+                              {i + 1}
+                            </span>
                           </td>
                           <td>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -934,7 +1096,12 @@ export default function Dashboard() {
           <div className="card-body" style={{ padding: 0 }}>
             {recentVehicles.length === 0 ? (
               <div className="empty-state">
-                <span className="empty-icon">🚗</span>
+                <span className="empty-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+                    <path d="M5 17H3a2 2 0 01-2-2v-4l2.5-6h13L19 11v4a2 2 0 01-2 2h-2"/>
+                    <circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/>
+                  </svg>
+                </span>
                 <p>No hay vehículos registrados aún.</p>
               </div>
             ) : (

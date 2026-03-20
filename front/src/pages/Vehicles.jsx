@@ -30,7 +30,8 @@ const SORT_OPTIONS = [
 const EMPTY_FILTERS = {
   search: '', status: '', type: '', brand: '',
   yearFrom: '', yearTo: '', priceFrom: '', priceTo: '',
-  kmMax: '', color: '', sort: 'newest', onlyFavs: false,
+  kmMax: '', color: '', condition: '', financing: false,
+  sort: 'newest', onlyFavs: false,
 }
 
 function formatKm(km) {
@@ -129,8 +130,9 @@ export default function Vehicles() {
 
   // Count active filters (excluding sort and onlyFavs)
   const activeCount = useMemo(() => {
-    return Object.entries(filters).filter(([k, v]) => k !== 'sort' && k !== 'onlyFavs' && v !== '').length
+    return Object.entries(filters).filter(([k, v]) => k !== 'sort' && k !== 'onlyFavs' && k !== 'financing' && v !== '').length
       + (filters.onlyFavs ? 1 : 0)
+      + (filters.financing ? 1 : 0)
   }, [filters])
 
   // Apply filters + sort
@@ -165,6 +167,8 @@ export default function Vehicles() {
       return p && p <= parseFloat(filters.priceTo)
     })
     if (filters.kmMax) result = result.filter(v => parseInt(v.km) <= parseInt(filters.kmMax))
+    if (filters.condition) result = result.filter(v => v.condition === filters.condition)
+    if (filters.financing) result = result.filter(v => v.financing_available === true)
 
     switch (filters.sort) {
       case 'oldest':    result.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); break
@@ -385,11 +389,23 @@ export default function Vehicles() {
                   height: 36, padding: '0 14px', borderRadius: 8, cursor: 'pointer',
                   border: `1.5px solid ${filters.onlyFavs ? '#e8a040' : 'var(--border)'}`,
                   background: filters.onlyFavs ? 'rgba(232,160,64,0.12)' : 'transparent',
-                  color: filters.onlyFavs ? 'var(--accent)' : 'var(--text-muted)',
+                  color: filters.onlyFavs ? '#e8a040' : 'var(--text-muted)',
                   fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', transition: 'all 0.15s',
                 }}
               >
-                ⭐ Solo favoritos
+                Solo favoritos
+              </button>
+              <button
+                onClick={() => set('financing', !filters.financing)}
+                style={{
+                  height: 36, padding: '0 14px', borderRadius: 8, cursor: 'pointer',
+                  border: `1.5px solid ${filters.financing ? 'var(--accent)' : 'var(--border)'}`,
+                  background: filters.financing ? 'rgba(74,232,208,0.1)' : 'transparent',
+                  color: filters.financing ? 'var(--accent)' : 'var(--text-muted)',
+                  fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', transition: 'all 0.15s',
+                }}
+              >
+                Con financiación
               </button>
             </div>
 
@@ -413,6 +429,14 @@ export default function Vehicles() {
                   <option value="utility">Utilitario</option>
                   <option value="road">Ruta</option>
                   <option value="luxury">Lujo</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: 11 }}>Condición</label>
+                <select value={filters.condition} onChange={e => set('condition', e.target.value)} style={{ height: 36 }}>
+                  <option value="">Todos</option>
+                  <option value="new">Nuevo</option>
+                  <option value="used">Usado</option>
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -556,6 +580,12 @@ export default function Vehicles() {
                   </div>
                   <div className="vehicle-card-sub">
                     <span className={`tag ${typeClass[v.type]}`}>{typeLabels[v.type]}</span>
+                    {v.condition === 'new' && (
+                      <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: 'rgba(61,232,138,0.12)', color: '#3de88a', border: '1px solid rgba(61,232,138,0.3)', letterSpacing: 0.4 }}>NUEVO</span>
+                    )}
+                    {v.financing_available && (
+                      <span style={{ marginLeft: 4, fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: 'rgba(74,232,208,0.1)', color: 'var(--accent)', border: '1px solid rgba(74,232,208,0.25)', letterSpacing: 0.4 }}>FINANCIACIÓN</span>
+                    )}
                     {v.color && <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--text-muted)' }}>{v.color}</span>}
                   </div>
                   <div className="vehicle-card-meta">
