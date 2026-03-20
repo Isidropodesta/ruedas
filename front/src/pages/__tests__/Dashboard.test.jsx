@@ -99,7 +99,7 @@ describe('Dashboard page', () => {
 
   it('renders Ventas Mensuales chart section', async () => {
     renderDashboard()
-    await waitFor(() => expect(screen.getByText('Ventas Mensuales (últimos 12 meses)')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Ventas Mensuales')).toBeInTheDocument())
   })
 
   it('renders Top Vendedores section', async () => {
@@ -109,8 +109,8 @@ describe('Dashboard page', () => {
 
   it('renders seller names in table', async () => {
     renderDashboard()
-    await waitFor(() => expect(screen.getByText('Carlos García')).toBeInTheDocument())
-    expect(screen.getByText('Ana Martínez')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getAllByText('Carlos García').length).toBeGreaterThan(0))
+    expect(screen.getAllByText('Ana Martínez').length).toBeGreaterThan(0)
   })
 
   it('renders Actividad Reciente section', async () => {

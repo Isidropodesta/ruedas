@@ -50,7 +50,7 @@ export default function KpiCard({ icon, label, value, sub, color = 'blue', trend
     <div className={`kpi-card kpi-card-${color}`}>
       <div className={`kpi-orb ${color}`} />
       <div className="kpi-top">
-        <span className="kpi-emoji">{icon}</span>
+        <span className="kpi-icon">{icon}</span>
         <span className="kpi-label">{label}</span>
       </div>
       <div className="kpi-bottom">

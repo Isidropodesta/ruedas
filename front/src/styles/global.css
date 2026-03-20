@@ -488,7 +488,7 @@ table,
   gap: 8px;
   margin-bottom: 16px;
 }
-.kpi-emoji { font-size: 15px; line-height: 1; opacity: 0.75; }
+.kpi-icon { display: flex; align-items: center; justify-content: center; opacity: 0.75; }
 .kpi-label {
   font-size: 9.5px;
   font-weight: 700;
