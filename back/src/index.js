@@ -14,7 +14,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 
-const { auth, requireRole } = require('./middleware/auth');
+const { auth, optionalAuth, requireRole } = require('./middleware/auth');
 const vehiclesRouter = require('./routes/vehicles');
 const sellersRouter = require('./routes/sellers');
 const kpisRouter = require('./routes/kpis');
@@ -22,6 +22,7 @@ const testDrivesRouter = require('./routes/testDrives');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const notificationsRouter = require('./routes/notifications');
+const companiesRouter = require('./routes/companies');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -79,9 +80,9 @@ app.get('/api/public/vehicles/:id', async (req, res) => {
 });
 
 // Protected routes — auth required for all
-// Vehicles: GET is public; write operations enforce role inside router
+// Vehicles: GET uses optionalAuth (company filter when logged in); writes require auth
 app.use('/api/vehicles', (req, res, next) => {
-  if (req.method === 'GET') return next();
+  if (req.method === 'GET') return optionalAuth(req, res, next);
   auth(req, res, next);
 }, vehiclesRouter);
 
@@ -97,6 +98,9 @@ app.use('/api/users', auth, requireRole('dueno'), usersRouter);
 
 // Notifications: vendedor+ only
 app.use('/api/notifications', auth, requireRole('vendedor', 'dueno'), notificationsRouter);
+
+// Companies: auth required
+app.use('/api/companies', auth, companiesRouter);
 
 // Config endpoint (read-only, public)
 app.get('/api/config', async (req, res) => {

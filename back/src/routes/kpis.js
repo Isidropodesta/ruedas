@@ -17,7 +17,8 @@ router.get('/general', async (req, res) => {
           WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
         ) AS vehicles_added_this_month
       FROM vehicles
-    `);
+      WHERE company_id = $1
+    `, [req.user.company_id]);
 
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
@@ -40,6 +41,9 @@ router.get('/sellers', async (req, res) => {
     const whereConditions = [];
     const params = [];
     let idx = 1;
+
+    whereConditions.push(`s.company_id = $${idx++}`);
+    params.push(req.user.company_id);
 
     if (seller_id) {
       whereConditions.push(`s.id = $${idx++}`);
@@ -101,10 +105,11 @@ router.get('/monthly', async (req, res) => {
         COALESCE(SUM(sale_price), 0) AS revenue
       FROM vehicles
       WHERE status = 'sold'
+        AND company_id = $2
         AND sold_at >= NOW() - $1::INTERVAL
       GROUP BY DATE_TRUNC('month', sold_at)
       ORDER BY DATE_TRUNC('month', sold_at) ASC
-    `, [interval]);
+    `, [interval, req.user.company_id]);
 
     res.json({ success: true, data: result.rows });
   } catch (err) {
@@ -119,8 +124,8 @@ router.get('/advanced', async (req, res) => {
     const avgResult = await pool.query(`
       SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (sold_at - created_at)) / 86400), 0) AS avg_days_to_sell
       FROM vehicles
-      WHERE status = 'sold' AND sold_at IS NOT NULL AND created_at IS NOT NULL
-    `);
+      WHERE status = 'sold' AND company_id = $1 AND sold_at IS NOT NULL AND created_at IS NOT NULL
+    `, [req.user.company_id]);
 
     const staleResult = await pool.query(`
       SELECT
@@ -129,17 +134,18 @@ router.get('/advanced', async (req, res) => {
         (SELECT vp.url FROM vehicle_photos vp WHERE vp.vehicle_id = v.id ORDER BY vp.id LIMIT 1) AS photo
       FROM vehicles v
       WHERE v.status = 'available'
+        AND v.company_id = $1
         AND v.created_at <= NOW() - INTERVAL '30 days'
       ORDER BY days_in_stock DESC
-    `);
+    `, [req.user.company_id]);
 
     const brandResult = await pool.query(`
       SELECT brand, COUNT(*) AS count
       FROM vehicles
-      WHERE status = 'available' AND brand IS NOT NULL
+      WHERE status = 'available' AND company_id = $1 AND brand IS NOT NULL
       GROUP BY brand
       ORDER BY count DESC
-    `);
+    `, [req.user.company_id]);
 
     res.json({
       success: true,

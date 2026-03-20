@@ -274,6 +274,11 @@ export function markNotificationRead(id) {
   return request(`/notifications/${id}/read`, { method: 'PUT' });
 }
 
+// Company
+export function getMyCompany() {
+  return request('/companies/me');
+}
+
 // App config
 export function getAppConfig() {
   const base = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';

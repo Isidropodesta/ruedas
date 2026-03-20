@@ -21,10 +21,10 @@ router.get('/', requireRole('vendedor', 'dueno'), async (req, res) => {
         FROM test_drives td
         LEFT JOIN sellers s ON s.id = td.seller_id
         LEFT JOIN vehicles v ON v.id = td.vehicle_id
-        WHERE td.status = $1
+        WHERE td.company_id = $1 AND td.status = $2
         ORDER BY td.scheduled_at ASC
       `;
-      params = [status];
+      params = [req.user.company_id, status];
     } else {
       query = `
         SELECT td.*,
@@ -34,8 +34,10 @@ router.get('/', requireRole('vendedor', 'dueno'), async (req, res) => {
         FROM test_drives td
         LEFT JOIN sellers s ON s.id = td.seller_id
         LEFT JOIN vehicles v ON v.id = td.vehicle_id
+        WHERE td.company_id = $1
         ORDER BY td.scheduled_at ASC
       `;
+      params = [req.user.company_id];
     }
 
     const result = await pool.query(query, params);
@@ -56,9 +58,9 @@ router.get('/mine', requireRole('cliente', 'vendedor', 'dueno'), async (req, res
         (SELECT vp.url FROM vehicle_photos vp WHERE vp.vehicle_id = v.id ORDER BY vp.id LIMIT 1) AS vehicle_photo
       FROM test_drives td
       LEFT JOIN vehicles v ON v.id = td.vehicle_id
-      WHERE td.client_email = $1
+      WHERE td.client_email = $1 AND td.company_id = $2
       ORDER BY td.scheduled_at DESC
-    `, [email]);
+    `, [email, req.user.company_id]);
     res.json({ success: true, data: result.rows });
   } catch (err) {
     console.error(err);

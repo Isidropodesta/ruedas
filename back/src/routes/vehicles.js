@@ -27,6 +27,12 @@ router.get('/', async (req, res) => {
     const params = [];
     let idx = 1;
 
+    // If authenticated, scope to their company
+    if (req.user?.company_id) {
+      conditions.push(`v.company_id = $${idx++}`);
+      params.push(req.user.company_id);
+    }
+
     if (status) {
       conditions.push(`v.status = $${idx++}`);
       params.push(status);
@@ -248,8 +254,8 @@ router.post('/', requireRole('vendedor', 'dueno'), upload.array('photos'), async
     }
 
     const vehicleResult = await client.query(
-      `INSERT INTO vehicles (brand, model, year, km, price_min, price_max, color, description, type, features, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'available')
+      `INSERT INTO vehicles (brand, model, year, km, price_min, price_max, color, description, type, features, status, company_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'available', $11)
        RETURNING *`,
       [
         brand, model,
@@ -260,7 +266,8 @@ router.post('/', requireRole('vendedor', 'dueno'), upload.array('photos'), async
         color || null,
         description || null,
         type,
-        JSON.stringify(parsedFeatures)
+        JSON.stringify(parsedFeatures),
+        req.user.company_id
       ]
     );
 

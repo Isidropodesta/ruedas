@@ -36,7 +36,9 @@ export default function Login() {
         if (!form.name.trim()) { setError('El nombre es requerido'); setLoading(false); return }
         res = await apiRegister(form.name, form.email, form.password)
       }
-      login(res.data.user, res.data.token)
+      const u = res.data.user
+      const companyData = u.company_name ? { id: u.company_id, name: u.company_name, slug: u.company_slug, logo_url: u.company_logo } : null
+      login(u, res.data.token, companyData)
       // Redirect based on role
       if (res.data.user.role === 'cliente') {
         navigate('/vehicles')

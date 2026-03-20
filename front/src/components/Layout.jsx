@@ -182,7 +182,7 @@ const pageTitles = {
 export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, company, logout } = useAuth()
   const { theme, toggle: toggleTheme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -216,7 +216,7 @@ export default function Layout() {
           <div className="sidebar-wheel-icon">
             <SteeringWheelIcon />
           </div>
-          <h1>RUEDAS</h1>
+          <h1>{company?.name?.toUpperCase() || 'RUEDAS'}</h1>
           <p>CONCESIONARIA</p>
         </div>
 

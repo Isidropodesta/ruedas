@@ -13,9 +13,10 @@ router.get('/', async (req, res) => {
         COALESCE(SUM(v.sale_price) FILTER (WHERE v.status = 'sold'), 0) AS total_revenue
       FROM sellers s
       LEFT JOIN vehicles v ON v.seller_id = s.id
+      WHERE s.company_id = $1
       GROUP BY s.id
       ORDER BY s.created_at DESC
-    `);
+    `, [req.user.company_id]);
     res.json({ success: true, data: result.rows });
   } catch (err) {
     console.error(err);
@@ -28,7 +29,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const sellerResult = await pool.query('SELECT * FROM sellers WHERE id = $1', [id]);
+    const sellerResult = await pool.query('SELECT * FROM sellers WHERE id = $1 AND company_id = $2', [id, req.user.company_id]);
     if (sellerResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Vendedor no encontrado' });
     }
@@ -81,10 +82,10 @@ router.post('/', requireRole('vendedor', 'dueno'), async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO sellers (name, email, phone, hire_date)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO sellers (name, email, phone, hire_date, company_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [name.trim(), email || null, phone || null, hire_date || null]
+      [name.trim(), email || null, phone || null, hire_date || null, req.user.company_id]
     );
 
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -114,8 +115,9 @@ router.put('/:id', requireRole('vendedor', 'dueno'), async (req, res) => {
     }
 
     params.push(id);
+    params.push(req.user.company_id);
     const result = await pool.query(
-      `UPDATE sellers SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
+      `UPDATE sellers SET ${fields.join(', ')} WHERE id = $${idx} AND company_id = $${idx + 1} RETURNING *`,
       params
     );
 
@@ -135,8 +137,8 @@ router.put('/:id/toggle', requireRole('dueno'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      'UPDATE sellers SET active = NOT active WHERE id = $1 RETURNING *',
-      [id]
+      'UPDATE sellers SET active = NOT active WHERE id = $1 AND company_id = $2 RETURNING *',
+      [id, req.user.company_id]
     );
 
     if (result.rows.length === 0) {

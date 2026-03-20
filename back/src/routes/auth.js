@@ -43,12 +43,17 @@ router.post('/register', loginLimiter, async (req, res) => {
       [name, email.toLowerCase(), hash]
     );
     const user = result.rows[0];
+    // Assign to default company on register
+    const companyRes = await pool.query('SELECT id FROM companies ORDER BY id LIMIT 1');
+    const company_id = companyRes.rows[0]?.id || 1;
+    await pool.query('UPDATE users SET company_id = $1 WHERE id = $2', [company_id, user.id]);
+
     const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email, role: user.role },
+      { id: user.id, name: user.name, email: user.email, role: user.role, seller_id: null, company_id },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-    res.status(201).json({ success: true, data: { user, token } });
+    res.status(201).json({ success: true, data: { user: { ...user, company_id }, token } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
@@ -75,7 +80,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(401).json({ success: false, error: 'Email o contraseña incorrectos' });
     }
     const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email, role: user.role },
+      { id: user.id, name: user.name, email: user.email, role: user.role, seller_id: user.seller_id || null, company_id: user.company_id },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -91,7 +96,11 @@ router.post('/login', loginLimiter, async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, role, seller_id, active, created_at FROM users WHERE id = $1',
+      `SELECT u.id, u.name, u.email, u.role, u.seller_id, u.company_id, u.active, u.created_at,
+              c.name AS company_name, c.slug AS company_slug, c.logo_url AS company_logo
+       FROM users u
+       LEFT JOIN companies c ON c.id = u.company_id
+       WHERE u.id = $1`,
       [req.user.id]
     );
     if (result.rows.length === 0) {
