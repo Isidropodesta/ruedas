@@ -99,8 +99,8 @@ app.use('/api/users', auth, requireRole('dueno'), usersRouter);
 // Notifications: vendedor+ only
 app.use('/api/notifications', auth, requireRole('vendedor', 'dueno'), notificationsRouter);
 
-// Companies: auth required
-app.use('/api/companies', auth, companiesRouter);
+// Companies: public list (no auth) + protected routes
+app.use('/api/companies', companiesRouter);
 
 // Config endpoint (read-only, public)
 app.get('/api/config', async (req, res) => {

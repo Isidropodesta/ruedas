@@ -279,6 +279,11 @@ export function getMyCompany() {
   return request('/companies/me');
 }
 
+export function getPublicCompanies() {
+  const base = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
+  return fetch(`${base}/companies/public`).then(r => r.json());
+}
+
 // App config
 export function getAppConfig() {
   const base = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
